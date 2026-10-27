@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import sharp from 'sharp'
 import type { Db } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
@@ -26,7 +26,7 @@ export async function saveMedia(
   db: Db,
   bytes: Buffer,
   mime: string,
-  extra: { durationMs?: number } = {},
+  extra: { durationMs?: number; role?: Media['role']; derivedFrom?: string } = {},
 ): Promise<Media> {
   const sha256 = createHash('sha256').update(bytes).digest('hex')
   const [existing] = await db.select().from(media).where(eq(media.sha256, sha256))
@@ -45,6 +45,8 @@ export async function saveMedia(
     width: size?.width ?? null,
     height: size?.height ?? null,
     durationMs: extra.durationMs ?? null,
+    role: extra.role ?? 'upload',
+    derivedFrom: extra.derivedFrom ?? null,
     createdAt: Date.now(),
   }
   await db.insert(media).values(row).onConflictDoNothing()
@@ -56,6 +58,14 @@ export async function loadMedia(db: Db, id: string) {
   const [row] = await db.select().from(media).where(eq(media.id, id))
   if (!row) return null
   return { row, bytes: await readFile(row.path) }
+}
+
+export async function derived(db: Db, id: string, role: Media['role']) {
+  const [row] = await db
+    .select()
+    .from(media)
+    .where(and(eq(media.derivedFrom, id), eq(media.role, role)))
+  return row ?? null
 }
 
 export function mediaUrl(id: string): string {

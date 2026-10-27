@@ -42,6 +42,10 @@ export const media = sqliteTable('media', {
   width: integer('width'),
   height: integer('height'),
   durationMs: integer('duration_ms'),
+  role: text('role', { enum: ['upload', 'catalog', 'cutout', 'invoice', 'ad'] })
+    .notNull()
+    .default('upload'),
+  derivedFrom: text('derived_from'),
   createdAt: createdAt(),
 })
 
