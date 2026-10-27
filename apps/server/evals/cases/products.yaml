@@ -1,0 +1,33 @@
+- id: photo-new-product
+  actor: seller
+  inputKind: photo
+  setup: { photo: true }
+  input: '[sent a product photo, cleaned image mediaId={{media}}; looks like: maroon block print cotton kurti; suggested name "Maroon Party Kurti"; aliases ["maroon kurti","party kurti","মেরুন কুর্তি"]] eta 1350 taka, M L XL 5 ta kore'
+  expect:
+    product: { priceTaka: 1350, variants: 3, stockEach: 5, withPhoto: true }
+    pending: [confirm_product]
+
+- id: photo-missing-price
+  actor: seller
+  inputKind: photo
+  setup: { photo: true }
+  input: '[sent a product photo, cleaned image mediaId={{media}}; looks like: olive cotton panjabi; suggested name "Olive Cotton Panjabi"; aliases ["panjabi"]] M L size ache, 4 ta kore'
+  expect:
+    noProduct: true
+    asks: true
+
+- id: product-text-only
+  actor: seller
+  input: 'notun product add koro: Blue Denim Jacket, 2200 taka, M 3 ta L 2 ta'
+  expect:
+    product: { priceTaka: 2200, variants: 2 }
+    pending: [confirm_product]
+
+- id: photo-bangla-caption
+  actor: seller
+  inputKind: photo
+  setup: { photo: true }
+  input: '[sent a product photo, cleaned image mediaId={{media}}; looks like: yellow cotton kids frock; suggested name "Yellow Kids Frock"; aliases ["frock","ফ্রক"]] দাম ৮৫০ টাকা, ২-৩ বছর সাইজ ৪ টা'
+  expect:
+    product: { priceTaka: 850, variants: 1, stockEach: 4, withPhoto: true }
+    pending: [confirm_product]

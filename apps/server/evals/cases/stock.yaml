@@ -1,0 +1,31 @@
+- id: stock-add
+  actor: seller
+  inputKind: voice
+  input: notun 10 ta sada t-shirt M size ashche
+  expect:
+    stock: { White Cotton T-Shirt/M: 10 }
+
+- id: stock-remove
+  actor: seller
+  input: 2 ta beige tote bag nosto hoye gese, stock theke bad dao
+  expect:
+    stock: { Canvas Tote Bag/beige: -2 }
+
+- id: stock-query
+  actor: seller
+  input: kalo t-shirt L size koyta ache?
+  expect:
+    replyMentionsAvailable: Black Cotton T-Shirt/L
+    noPending: true
+
+- id: stock-negative
+  actor: seller
+  input: navy kurti XL theke 10 ta komao
+  expect:
+    stock: { Navy Embroidered Kurti/XL: 0 }
+
+- id: stock-low-report
+  actor: seller
+  input: kon kon item sesh hoye ashche?
+  expect:
+    reply: { containsAny: [Navy, নেভি] }

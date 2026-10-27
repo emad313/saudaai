@@ -1,0 +1,83 @@
+- id: order-basic-banglish
+  actor: seller
+  inputKind: voice
+  input: Rahim bhai 2 ta kalo t-shirt nibe L size, Mirpur 10 e delivery, bkash e pay korbe
+  expect:
+    order: { items: [Black Cotton T-Shirt/L x2], paymentMethod: bkash, customer: Rahim Uddin }
+    pending: [send_order_confirmation]
+
+- id: order-bangla-script
+  actor: seller
+  inputKind: voice
+  input: সুমাইয়া আপু ১টা মেরুন কুর্তি নিবে M সাইজ, ধানমন্ডি, ক্যাশ অন ডেলিভারি
+  expect:
+    order: { items: [Maroon Block Print Kurti/M x1], paymentMethod: cod, customer: Sumaiya Akter }
+    pending: [send_order_confirmation]
+
+- id: order-english
+  actor: seller
+  input: 'New order for Karim Hossain: one navy kurti size L, deliver to Chattogram, cash on delivery'
+  expect:
+    order:
+      {
+        items: [Navy Embroidered Kurti/L x1],
+        paymentMethod: cod,
+        customer: Karim Hossain,
+        deliveryTaka: 120,
+      }
+    pending: [send_order_confirmation]
+
+- id: order-new-customer
+  actor: seller
+  input: notun customer Mitu, 01755123456, Uttara sector 4, 2 ta black jersey hijab, bkash
+  expect:
+    order: { items: [Jersey Hijab/black x2], paymentMethod: bkash, customer: Mitu }
+    pending: [send_order_confirmation]
+
+- id: order-multi-item
+  actor: seller
+  inputKind: voice
+  input: Farhana apa nibe 1 ta peach three piece L size ar 2 ta pink chiffon hijab, Uttara, nagad
+  expect:
+    order:
+      {
+        items: [Peach Georgette Three-Piece/L x1, Chiffon Hijab/pink x2],
+        paymentMethod: nagad,
+        customer: Farhana Rahman,
+      }
+    pending: [send_order_confirmation]
+
+- id: order-missing-size
+  actor: seller
+  input: Rahim bhai 1 ta sada t-shirt nibe, Mirpur, bkash
+  expect:
+    noOrder: true
+    asks: true
+
+- id: order-ambiguous-product
+  actor: seller
+  input: Jamil bhai 1 ta kurti nibe M size, Gulshan, cod
+  expect:
+    noOrder: true
+    asks: true
+
+- id: order-out-of-stock
+  actor: seller
+  input: Tanvir ke 10 ta navy kurti XL dao, Sylhet, bkash
+  expect:
+    noOrder: true
+    replyMentionsAvailable: Navy Embroidered Kurti/XL
+
+- id: order-cancel
+  actor: seller
+  input: 1014 number order ta cancel koro, customer nibe na
+  expect:
+    pending: [update_order_status]
+    orderStatus: { 1014: confirmed }
+
+- id: order-ship
+  actor: seller
+  input: 1013 number order ta courier e pathiye diyechi
+  expect:
+    orderStatus: { 1013: shipped }
+    noPending: true

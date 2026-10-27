@@ -1,0 +1,42 @@
+- id: co-full-info
+  category: customer ordering
+  actor: customer
+  history:
+    - { role: customer, text: black jersey hijab ache? }
+    - { role: agent, text: 'Ji, black jersey hijab ache, dam ৳350. Koyta niben?' }
+  input: 2 ta nibo. Nam Mitu, 01755123456, House 4 Road 7 Uttara Dhaka, bkash e pay korbo
+  expect:
+    order:
+      {
+        items: [Jersey Hijab/black x2],
+        paymentMethod: bkash,
+        source: customer_chat,
+        customer: Mitu,
+      }
+    pending: [send_order_confirmation]
+
+- id: co-missing-info
+  category: customer ordering
+  actor: customer
+  input: Maroon kurti M size ta nibo
+  expect:
+    noOrder: true
+    asks: true
+
+- id: co-auto-confirm
+  category: customer ordering
+  actor: customer
+  setup: { auto: { confirm_order: { maxPoisha: 300000 } } }
+  input: 1 ta olive chiffon hijab nibo. Rupa Das, 01711000808, Sonadanga Khulna, cash on delivery
+  expect:
+    order: { items: [Chiffon Hijab/olive x1], status: confirmed, source: customer_chat }
+    noPending: true
+    sentImages: 1
+
+- id: co-out-of-stock
+  category: customer ordering
+  actor: customer
+  input: 5 ta navy kurti XL nibo, Rupa Das, 01711000808, Sonadanga Khulna, cod
+  expect:
+    noOrder: true
+    replyMentionsAvailable: Navy Embroidered Kurti/XL

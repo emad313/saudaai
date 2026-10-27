@@ -1,0 +1,24 @@
+- id: payment-full
+  actor: seller
+  inputKind: voice
+  input: Rahim bhai 1009 number order er 860 taka bkash e pathiyeche
+  expect:
+    pendingArgs: { record_payment: { amountTaka: 860 } }
+
+- id: payment-partial
+  actor: seller
+  input: Karim bhai 1012 er jonno 300 taka dise nagad e, baki pore dibe
+  expect:
+    pendingArgs: { record_payment: { amountTaka: 300 } }
+
+- id: payment-reminder
+  actor: seller
+  input: Rahim bhai ke 1009 er payment er kotha mone koriye dao
+  expect:
+    pending: [send_payment_reminder]
+
+- id: expense
+  actor: seller
+  input: aj courier e 350 taka khoroch holo
+  expect:
+    expense: 350

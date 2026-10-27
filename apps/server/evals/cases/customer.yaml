@@ -1,0 +1,69 @@
+- id: cq-stock-price
+  category: customer questions
+  actor: customer
+  channel: messenger
+  input: Maroon kurti XL ache? dam koto?
+  expect:
+    reply: { containsAny: ['1,250', '1250', '১,২৫০', '১২৫০'] }
+    held: false
+
+- id: cq-delivery-ctg
+  category: customer questions
+  actor: customer
+  input: Chittagong e delivery charge koto? koto din lage?
+  expect:
+    reply: { containsAny: ['120', '১২০'] }
+    held: false
+
+- id: cq-bangla
+  category: customer questions
+  actor: customer
+  input: জার্সি হিজাব কি কি রঙে আছে?
+  expect:
+    reply: { containsAny: [কালো, black, Black, মেরুন, maroon] }
+    held: false
+
+- id: cq-payment
+  category: customer questions
+  actor: customer
+  channel: whatsapp
+  input: bkash e payment kora jabe? number ta din
+  expect:
+    reply: { containsAny: ['01700000000', '০১৭০০০০০০০০'] }
+    held: false
+
+- id: cq-out-of-catalog
+  category: customer questions
+  actor: customer
+  input: apnader kache saree ache?
+  expect:
+    noOrder: true
+    held: false
+    reply: { notContainsAny: ['৳'] }
+
+- id: cq-order-status
+  category: customer questions
+  actor: customer
+  setup: { customer: Rahim Uddin }
+  input: amar order ta ekhon kothay?
+  expect:
+    calls: [my_orders]
+    reply: { containsAny: ['1009', '১০০৯', '1001', '১০০১'] }
+
+- id: cq-photo
+  category: customer questions
+  actor: customer
+  setup: { photoFor: Black Cotton T-Shirt }
+  input: kalo t-shirt er chobi dekhan please
+  expect:
+    calls: [send_product_photo]
+    sentImages: 1
+
+- id: cq-english
+  category: customer questions
+  actor: customer
+  channel: whatsapp
+  input: Do you have the tote bag in black? What is the price?
+  expect:
+    reply: { containsAny: ['650'] }
+    held: false

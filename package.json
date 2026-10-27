@@ -15,7 +15,11 @@
     "format": "prettier --write .",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",
-    "db:seed": "pnpm --filter server db:seed"
+    "db:seed": "pnpm --filter server db:seed",
+    "eval": "pnpm --filter server eval",
+    "spike": "pnpm --filter server spike",
+    "webhooks:set": "pnpm --filter server webhooks:set",
+    "start": "pnpm --filter server start"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

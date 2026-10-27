@@ -47,6 +47,10 @@ function priceNumbers(text: string): string[] {
   return [...before, ...after].map((n) => n.replace(/,/g, ''))
 }
 
+export function mentionsOffer(text: string) {
+  return /\d+\s*%/.test(latin(text)) || (offerWords.test(text) && /\d/.test(latin(text)))
+}
+
 // A customer reply goes out without the seller only if every number in it was seen in shop data
 // or in what the customer wrote, every price in it came from shop data, and it promises no offer.
 export function checkCustomerReply(
@@ -54,9 +58,7 @@ export function checkCustomerReply(
   facts: Set<string>,
   said: Set<string>,
 ): string | null {
-  if (/\d+\s*%/.test(latin(text)) || (offerWords.test(text) && /\d/.test(latin(text)))) {
-    return 'mentions an offer'
-  }
+  if (mentionsOffer(text)) return 'mentions an offer'
   const unknown = numbersIn(text).filter((n) => !facts.has(n) && !said.has(n))
   const prices = priceNumbers(text).filter((n) => !facts.has(n))
   const bad = [...new Set([...unknown, ...prices])]
