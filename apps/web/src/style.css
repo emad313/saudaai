@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Noto Sans Bengali', 'Hind Siliguri', system-ui, sans-serif;
+  --color-brand: #0f766e;
+}
