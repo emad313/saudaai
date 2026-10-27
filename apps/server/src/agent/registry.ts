@@ -1,7 +1,8 @@
 import { formatTaka } from '@saudaai/shared'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { conversations, orders, orderStatuses } from '../db/schema.ts'
+import { newId } from '../db/ids.ts'
+import { conversations, customerIdentities, orders, orderStatuses } from '../db/schema.ts'
 import { canSendFreeform } from '../channels/window.ts'
 import type { Ctx } from '../tools/ctx.ts'
 import { ToolError } from '../tools/ctx.ts'
@@ -238,9 +239,18 @@ export const tools: ToolDef[] = [
   }),
   tool({
     name: 'confirm_product',
-    description: 'Publish a draft product to the live catalog.',
+    description:
+      'Publish a draft product to the live catalog. The seller approves it with one tap.',
     schema: z.object({ productId: id }),
     expose: 'seller',
+    guard: () => true,
+    preview: async (ctx, a) => {
+      const p = await getProduct(ctx, a)
+      const stock = p.variants.map(
+        (v) => `${[v.size, v.color].filter(Boolean).join('/') || 'stock'} ${v.available}`,
+      )
+      return `Publish to catalog?\n${p.name} - ${p.price}\n${stock.join(', ')}`
+    },
     run: (ctx, a) => setProductStatus(ctx, { productId: a.productId, status: 'active' }),
     done: (r: { name: string }) => `Live in catalog: ${r.name}`,
   }),
@@ -518,6 +528,17 @@ export const tools: ToolDef[] = [
           .update(conversations)
           .set({ customerId: customer.customerId })
           .where(eq(conversations.id, ctx.conversation.id))
+        await ctx.db
+          .insert(customerIdentities)
+          .values({
+            id: newId(),
+            customerId: customer.customerId,
+            channel: ctx.conversation.channel,
+            externalUserId: ctx.conversation.externalUserId,
+            profileName: ctx.conversation.profileName,
+            createdAt: ctx.now,
+          })
+          .onConflictDoNothing()
       }
       const linked: TurnCtx = { ...ctx, customerId: customer.customerId }
       const order = await createOrder(linked, {
