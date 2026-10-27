@@ -1,9 +1,8 @@
-import { mediaUrl } from '../media/store.ts'
 import type { OutboundMessage } from './types.ts'
 
 export type WebEvent = {
   role: 'agent' | 'seller'
-  kind: 'text' | 'image'
+  kind: 'text' | 'image' | 'typing'
   text?: string
   quickReplies?: string[]
   imageUrl?: string
@@ -12,26 +11,38 @@ export type WebEvent = {
 
 type Listener = (e: WebEvent) => void
 
+// keyed by the web chat session id, which is the conversation's externalUserId
 const listeners = new Map<string, Set<Listener>>()
 
-export function subscribe(conversationId: string, fn: Listener) {
-  const set = listeners.get(conversationId) ?? new Set()
+export function subscribe(session: string, fn: Listener) {
+  const set = listeners.get(session) ?? new Set()
   set.add(fn)
-  listeners.set(conversationId, set)
+  listeners.set(session, set)
   return () => {
     set.delete(fn)
-    if (!set.size) listeners.delete(conversationId)
+    if (!set.size) listeners.delete(session)
   }
 }
 
+export function sendTyping(session: string) {
+  for (const fn of listeners.get(session) ?? [])
+    fn({ role: 'agent', kind: 'typing', at: Date.now() })
+}
+
 export function sendWebchat(
-  conversationId: string,
+  session: string,
   msg: OutboundMessage,
   role: 'agent' | 'seller' = 'agent',
 ) {
   const event: WebEvent =
     msg.kind === 'image'
-      ? { role, kind: 'image', imageUrl: mediaUrl(msg.mediaId), text: msg.caption, at: Date.now() }
+      ? {
+          role,
+          kind: 'image',
+          imageUrl: `/media/${msg.mediaId}`,
+          text: msg.caption,
+          at: Date.now(),
+        }
       : {
           role,
           kind: 'text',
@@ -39,5 +50,5 @@ export function sendWebchat(
           quickReplies: msg.kind === 'text' ? msg.quickReplies : undefined,
           at: Date.now(),
         }
-  for (const fn of listeners.get(conversationId) ?? []) fn(event)
+  for (const fn of listeners.get(session) ?? []) fn(event)
 }

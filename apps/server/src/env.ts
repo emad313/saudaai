@@ -18,6 +18,7 @@ const schema = z.object({
     .default('0')
     .transform((v) => v === '1'),
   DEMO_SHOP_SLUG: z.string().default('nusrats-closet'),
+  WEB_DIST: z.string().default('../web/dist'),
 
   AGENT_PROVIDER: z.enum(['baseten', 'meta']).default('baseten'),
   BASETEN_API_KEY: optional,
@@ -33,6 +34,7 @@ const schema = z.object({
   META_IMAGE_MODEL: optional,
 
   TELEGRAM_BOT_TOKEN: optional,
+  TELEGRAM_MODE: z.enum(['polling', 'webhook']).default('polling'),
   TELEGRAM_WEBHOOK_SECRET: optional,
 
   GRAPH_API_VERSION: z.string().default('v23.0'),

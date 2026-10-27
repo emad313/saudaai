@@ -68,7 +68,10 @@ export function parseMessenger(
 }
 
 export async function messengerProfileName(psid: string) {
-  const p = await graphGet(`${psid}?fields=first_name,last_name`, token()).catch(() => null)
+  if (!env.MESSENGER_PAGE_TOKEN) return null
+  const p = await graphGet(`${psid}?fields=first_name,last_name`, env.MESSENGER_PAGE_TOKEN).catch(
+    () => null,
+  )
   return p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || null : null
 }
 

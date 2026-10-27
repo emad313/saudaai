@@ -1,0 +1,38 @@
+{
+  "object": "page",
+  "entry": [
+    {
+      "id": "PAGE_ID",
+      "time": 1793080000000,
+      "messaging": [
+        {
+          "sender": { "id": "PSID_KARIM" },
+          "recipient": { "id": "PAGE_ID" },
+          "timestamp": 1793080000000,
+          "message": {
+            "mid": "m_voice_1",
+            "attachments": [
+              { "type": "audio", "payload": { "url": "https://cdn.example/voice.mp4" } }
+            ]
+          }
+        },
+        {
+          "sender": { "id": "PSID_KARIM" },
+          "recipient": { "id": "PAGE_ID" },
+          "timestamp": 1793080001000,
+          "message": {
+            "mid": "m_text_1",
+            "text": "XL ache?",
+            "quick_reply": { "payload": "XL ache?" }
+          }
+        },
+        {
+          "sender": { "id": "PAGE_ID" },
+          "recipient": { "id": "PSID_KARIM" },
+          "timestamp": 1793080002000,
+          "message": { "mid": "m_echo_1", "text": "echo", "is_echo": true }
+        }
+      ]
+    }
+  ]
+}

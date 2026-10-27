@@ -1,0 +1,73 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA_ID",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "15550000000", "phone_number_id": "PHONE_ID" },
+            "contacts": [{ "wa_id": "8801711000101", "profile": { "name": "Rahim" } }],
+            "messages": [
+              {
+                "from": "8801711000101",
+                "id": "wamid.text",
+                "timestamp": "1793080000",
+                "type": "text",
+                "text": { "body": "amar order kothay?" }
+              },
+              {
+                "from": "8801711000101",
+                "id": "wamid.btn",
+                "timestamp": "1793080001",
+                "type": "interactive",
+                "interactive": {
+                  "type": "button_reply",
+                  "button_reply": { "id": "o1", "title": "L" }
+                }
+              },
+              {
+                "from": "8801711000101",
+                "id": "wamid.img",
+                "timestamp": "1793080002",
+                "type": "image",
+                "image": { "id": "MEDIA_1", "mime_type": "image/jpeg", "caption": "eta ache?" }
+              },
+              {
+                "from": "8801711000101",
+                "id": "wamid.loc",
+                "timestamp": "1793080003",
+                "type": "location",
+                "location": { "latitude": 23.8, "longitude": 90.36, "address": "Mirpur 10" }
+              },
+              {
+                "from": "8801711000101",
+                "id": "wamid.sticker",
+                "timestamp": "1793080004",
+                "type": "sticker",
+                "sticker": { "id": "S1" }
+              }
+            ]
+          }
+        },
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "15550000000", "phone_number_id": "PHONE_ID" },
+            "statuses": [
+              {
+                "id": "wamid.out",
+                "status": "delivered",
+                "timestamp": "1793080005",
+                "recipient_id": "8801711000101"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

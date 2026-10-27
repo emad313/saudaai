@@ -17,6 +17,7 @@ export type SellerLine = {
 
 export type Outbound = {
   send(conversation: Conversation, msg: OutboundMessage): Promise<void>
+  typing?(conversation: Conversation): Promise<void>
 }
 
 export type AdFormat = 'square' | 'story'
