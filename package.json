@@ -12,7 +12,10 @@
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter server db:generate",
+    "db:migrate": "pnpm --filter server db:migrate",
+    "db:seed": "pnpm --filter server db:seed"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
