@@ -12,7 +12,6 @@ const schema = z.object({
   PUBLIC_BASE_URL: z.string().default('http://localhost:8787'),
   DATABASE_URL: z.string().default('file:./data/saudaai.db'),
   MEDIA_DIR: z.string().default('./data/media'),
-  SESSION_SECRET: z.string().default('dev-secret'),
   DEMO_READONLY: z
     .enum(['0', '1'])
     .default('0')
