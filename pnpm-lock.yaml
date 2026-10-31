@@ -50,6 +50,9 @@ importers:
       '@libsql/client':
         specifier: ^0.18.0
         version: 0.18.0
+      '@meta-sam/parser':
+        specifier: 0.1.0
+        version: 0.1.0
       '@saudaai/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -944,6 +947,10 @@ packages:
     resolution: {integrity: sha512-4/0CvEdhi6+KjMxMaVbFM2n2Z44escBRoEYpR+gZg64DdetzGnYm8mcNLcoySaDJZNaBd6wz5DNdgRmcI4hXcg==}
     cpu: [x64]
     os: [win32]
+
+  '@meta-sam/parser@0.1.0':
+    resolution: {integrity: sha512-099xq4EhULxm7gV+kEllQ9WTaNgwYumGRvCX5WAT2bny/SEh+U9tVT9bAzN1mISOC7TO6mgOt3MJmZ2Mv2RTmw==}
+    engines: {node: ^20.17.0 || >=22.9.0}
 
   '@neon-rs/load@0.0.4':
     resolution: {integrity: sha512-kTPhdZyTQxB+2wpiRcFWrDcejc4JI6tkPuS7UZCG4l6Zvc5kU/gGQ/ozvHTh1XR5tS+UlfAfGuPajjzQjCiHCw==}
@@ -2980,6 +2987,8 @@ snapshots:
 
   '@libsql/win32-x64-msvc@0.5.29':
     optional: true
+
+  '@meta-sam/parser@0.1.0': {}
 
   '@neon-rs/load@0.0.4': {}
 

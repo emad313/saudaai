@@ -37,7 +37,7 @@ export async function tracked<T>(db: Db, call: Call<T>): Promise<T> {
       inputUnits: out.inputUnits,
       outputUnits: out.outputUnits,
     })
-    if (call.cacheKey) {
+    if (call.cacheKey && out.value != null) {
       await db
         .insert(modelCache)
         .values({

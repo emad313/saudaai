@@ -3,11 +3,13 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import sharp from 'sharp'
 import { z } from 'zod'
 import type { Db } from '../db/client.ts'
 import type { Env } from '../env.ts'
 import { complete, parseJsonReply, type ChatMessage, type Endpoint, type ToolSpec } from './chat.ts'
 import { ModelError, postJson, request } from './http.ts'
+import { bestMask } from './sam.ts'
 import { hashOf, tracked } from './track.ts'
 
 const run = promisify(execFile)
@@ -50,6 +52,10 @@ async function toWav(audio: Buffer): Promise<Buffer> {
       '1',
       '-ar',
       '16000',
+      '-c:a',
+      'pcm_s16le',
+      '-map_metadata',
+      '-1',
       join(dir, 'out.wav'),
     ])
     return await readFile(join(dir, 'out.wav'))
@@ -95,7 +101,7 @@ export function createModels(db: Db, env: Env): Models {
       })
     },
 
-    async transcribe(audio, mime) {
+    async transcribe(audio) {
       if (env.META_TRANSCRIBE_MODEL) {
         const ep = meta(env.META_TRANSCRIBE_MODEL, 'META_TRANSCRIBE_MODEL')
         return tracked(db, {
@@ -105,15 +111,27 @@ export function createModels(db: Db, env: Env): Models {
           cacheKey: hashOf('transcribe', ep.model, audio),
           run: async () => {
             const form = new FormData()
-            form.append('model', ep.model)
-            form.append('file', new Blob([new Uint8Array(audio)], { type: mime }), 'voice.ogg')
-            const res = await request(`${ep.baseUrl.replace(/\/$/, '')}/audio/transcriptions`, {
+            const settings = {
+              model: ep.model,
+              audioEncoding: 'WAV',
+              mode: 'PUSH_TO_TALK',
+              languageBias: ['Bengali', 'English'],
+            }
+            form.append(
+              'request',
+              new Blob([JSON.stringify(settings)], { type: 'application/json' }),
+            )
+            form.append(
+              'audio',
+              new Blob([new Uint8Array(await toWav(audio))], { type: 'audio/wav' }),
+            )
+            const res = await request(`${ep.baseUrl.replace(/\/$/, '')}/asr/transcribe`, {
               headers: { authorization: `Bearer ${ep.key}` },
               body: form,
               timeoutMs: 30_000,
             })
-            const body = (await res.json()) as { text?: string }
-            return { value: (body.text ?? '').trim() }
+            const body = (await res.json()) as { transcript?: string }
+            return { value: (body.transcript ?? '').trim() }
           },
         })
       }
@@ -162,14 +180,38 @@ export function createModels(db: Db, env: Env): Models {
         model: ep.model,
         cacheKey: hashOf('segment', ep.model, prompt, image),
         run: async () => {
-          const body = await postJson<{ masks?: { mask?: string; score?: number }[] }>(
-            `${ep.baseUrl.replace(/\/$/, '')}/images/segmentations`,
+          // Rotate first so the boxes SAM returns line up with the oriented photo we compose.
+          const upright = await sharp(image).rotate().jpeg({ quality: 90 }).toBuffer()
+          const body = await postJson<{
+            output?: { content?: { type: string; text?: string }[] }[]
+          }>(
+            `${ep.baseUrl.replace(/\/$/, '')}/responses`,
             ep.key,
-            { model: ep.model, image: image.toString('base64'), prompt: { text: prompt } },
-            20_000,
+            {
+              model: ep.model,
+              input: [
+                {
+                  type: 'message',
+                  role: 'user',
+                  content: [
+                    { type: 'input_text', text: prompt },
+                    {
+                      type: 'input_image',
+                      image_url: `data:image/jpeg;base64,${upright.toString('base64')}`,
+                    },
+                  ],
+                },
+              ],
+              metadata: { include_confidence: 'true' },
+            },
+            30_000,
           )
-          const best = [...(body.masks ?? [])].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
-          return { value: best?.mask ?? null }
+          const text = (body.output ?? [])
+            .flatMap((o) => o.content ?? [])
+            .map((c) => c.text ?? '')
+            .join('')
+          const mask = await bestMask(text)
+          return { value: mask ? mask.toString('base64') : null }
         },
       })
       return mask ? Buffer.from(mask, 'base64') : null
@@ -203,7 +245,8 @@ export function createModels(db: Db, env: Env): Models {
                   ],
                 },
               ],
-              json: true,
+              schema: { name: 'product', schema: z.toJSONSchema(productAttributes) },
+              reasoning: 'low',
               temperature: 0,
             },
             30_000,
@@ -229,7 +272,14 @@ export function createModels(db: Db, env: Env): Models {
           const body = await postJson<{ data?: { b64_json?: string; url?: string }[] }>(
             `${ep.baseUrl.replace(/\/$/, '')}/images/generations`,
             ep.key,
-            { model: ep.model, prompt, size, n: 1, response_format: 'b64_json' },
+            {
+              model: ep.model,
+              prompt,
+              size,
+              n: 1,
+              response_format: 'b64_json',
+              output_format: 'webp',
+            },
             60_000,
           )
           const first = body.data?.[0]

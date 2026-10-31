@@ -26,6 +26,7 @@ export type Endpoint = { provider: string; baseUrl: string; key: string; model: 
 
 type Completion = {
   choices: {
+    finish_reason?: string
     message: {
       content: string | null
       reasoning_content?: string
@@ -45,9 +46,10 @@ export async function complete(
   body: {
     messages: ChatMessage[]
     tools?: ToolSpec[]
-    json?: boolean
+    schema?: { name: string; schema: Record<string, unknown> }
     temperature?: number
     maxTokens?: number
+    reasoning?: 'minimal' | 'low' | 'medium' | 'high'
   },
   timeoutMs: number,
 ) {
@@ -58,14 +60,20 @@ export async function complete(
       model: ep.model,
       messages: body.messages,
       ...(body.tools?.length ? { tools: body.tools, tool_choice: 'auto' } : {}),
-      ...(body.json ? { response_format: { type: 'json_object' } } : {}),
+      ...(body.schema
+        ? { response_format: { type: 'json_schema', json_schema: body.schema } }
+        : {}),
       temperature: body.temperature ?? 0.2,
-      max_tokens: body.maxTokens ?? 1024,
+      // Muse Spark always reasons first and reasoning tokens count against this cap.
+      max_completion_tokens: body.maxTokens ?? 4096,
+      ...(body.reasoning ? { reasoning_effort: body.reasoning } : {}),
     },
     timeoutMs,
   )
   const msg = res.choices[0]?.message
   if (!msg) throw new ModelError(`${ep.provider}: empty completion`)
+  if (res.choices[0]!.finish_reason === 'length' && !msg.content && !msg.tool_calls?.length)
+    throw new ModelError(`${ep.provider}: hit the token cap before answering`)
   return {
     text: stripReasoning(msg.content),
     toolCalls: msg.tool_calls ?? [],

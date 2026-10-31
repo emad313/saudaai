@@ -112,8 +112,8 @@ const layouts: Record<string, (p: Parts) => string> = {
 
 async function background(models: Models, prompt: string, size: '1024x1024' | '1024x1792') {
   try {
-    const png = await models.image(prompt, size)
-    return `data:image/png;base64,${png.toString('base64')}`
+    const scene = await models.image(prompt, size)
+    return `data:image/webp;base64,${scene.toString('base64')}`
   } catch (err) {
     log.warn(
       { err: err instanceof Error ? err.message : err },
