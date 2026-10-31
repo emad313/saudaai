@@ -27,7 +27,7 @@ import {
   shops,
   variants,
 } from '../src/db/schema.ts'
-import { seedDemoShop } from '../src/db/seed.ts'
+import { seedFixtureShop } from '../src/test/seed.ts'
 import { createInbox } from '../src/inbox.ts'
 import { saveMedia } from '../src/media/store.ts'
 import type { Models } from '../src/models/index.ts'
@@ -170,7 +170,7 @@ async function runIn(
   const db = openDb(`file:${join(mkdtempSync(join(tmpdir(), 'saudaai-eval-')), 'eval.db')}`)
   await migrateDb(db)
   const now = Date.now()
-  let shop = await seedDemoShop(db, now)
+  let shop = await seedFixtureShop(db, now)
   shop = { ...shop, telegramChatId: 'eval' }
 
   const notes: { text: string; choices?: string[] }[] = []

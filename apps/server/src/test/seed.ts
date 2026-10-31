@@ -3,34 +3,10 @@ import { createCustomer } from '../tools/customers.ts'
 import type { Ctx } from '../tools/ctx.ts'
 import { createOrder, recordPayment, updateOrderStatus } from '../tools/orders.ts'
 import { createProductDraft, setProductStatus, type VariantInput } from '../tools/products.ts'
-import type { Db } from './client.ts'
-import { newId } from './ids.ts'
-import { shops } from './schema.ts'
-
-const dhakaAreas = [
-  'Mirpur',
-  'Dhanmondi',
-  'Uttara',
-  'Gulshan',
-  'Banani',
-  'Mohammadpur',
-  'Badda',
-  'Rampura',
-  'Motijheel',
-  'Farmgate',
-  'Bashundhara',
-  'Khilgaon',
-  'Jatrabari',
-  'Tejgaon',
-  'Shyamoli',
-  'Aftabnagar',
-  'Banasree',
-  'Malibagh',
-  'Moghbazar',
-  'Lalbagh',
-  'Wari',
-  'Mohakhali',
-]
+import type { Db } from '../db/client.ts'
+import { shops } from '../db/schema.ts'
+import { createShop } from '../db/shop.ts'
+import { env } from '../env.ts'
 
 const sizes = (list: string[], stock: number[], color?: string): VariantInput[] =>
   list.map((size, i) => ({ size, stock: stock[i] ?? 0, ...(color ? { color } : {}) }))
@@ -203,26 +179,17 @@ const paths: Record<string, string[]> = {
   cancelled: ['cancelled'],
 }
 
-export async function seedDemoShop(db: Db, now = Date.now(), slug = 'nusrats-closet') {
-  const shop = {
-    id: newId(),
-    slug,
+// Test and eval fixture only: a made-up catalog, customers and a week of orders on the built-in catalog.
+export async function seedFixtureShop(db: Db, now = Date.now()) {
+  const created = await createShop(db, {
+    slug: env.DEMO_SHOP_SLUG,
     name: "Nusrat's Closet",
     ownerName: 'Nusrat',
     area: 'Mirpur, Dhaka',
-    language: 'bn',
-    deliveryRules: { insideDhakaPoisha: 6000, outsideDhakaPoisha: 12000, insideAreas: dhakaAreas },
-    paymentMethods: ['cod', 'bkash', 'nagad'],
-    bkashNumber: '01700000000',
-    auto: {},
-    feedMuted: false,
-    telegramChatId: null,
-    linkCode: newId(),
-    publicKey: `${newId()}${newId()}`,
-    orderSeq: 1000,
-    createdAt: now - 30 * 24 * hour,
-  }
-  await db.insert(shops).values(shop)
+    now: now - 30 * 24 * hour,
+  })
+  await db.update(shops).set({ bkashNumber: '01700000000' }).where(eq(shops.id, created.id))
+  const shop = { ...created, bkashNumber: '01700000000' }
   const ctx = (at: number): Ctx => ({ db, shop: { ...shop }, actor: 'system', now: at })
 
   const items = []

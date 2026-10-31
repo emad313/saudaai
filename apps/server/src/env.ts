@@ -16,7 +16,7 @@ const schema = z.object({
     .enum(['0', '1'])
     .default('0')
     .transform((v) => v === '1'),
-  DEMO_SHOP_SLUG: z.string().default('nusrats-closet'),
+  DEMO_SHOP_SLUG: z.string().default('my-shop'),
   WEB_DIST: z.string().default('../web/dist'),
 
   AGENT_PROVIDER: z.enum(['meta', 'baseten']).default('meta'),

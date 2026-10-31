@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { eq, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
-import { products, stores, type StoreKind } from '../db/schema.ts'
+import { products, shops, stores, type StoreKind } from '../db/schema.ts'
 import { env } from '../env.ts'
 import { mask, seal, unseal } from './crypto.ts'
 import { customConnector } from './custom.ts'
@@ -78,6 +78,8 @@ export async function connectStore(
     if (!res.ok) throw new StoreError(res.error, 400)
     row.name = res.name
     row.currency = res.currency
+    // The store is the shop's identity too.
+    await db.update(shops).set({ name: res.name }).where(eq(shops.id, shop.id))
   }
   await db
     .insert(stores)
