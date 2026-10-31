@@ -7,6 +7,7 @@ import { env } from '../env.ts'
 import { mask, seal, unseal } from './crypto.ts'
 import { customConnector } from './custom.ts'
 import { shopifyConnector } from './shopify.ts'
+import { wooConnector } from './woocommerce.ts'
 import { StoreError, type StoreConnector } from './types.ts'
 
 export type StoreRow = typeof stores.$inferSelect
@@ -22,8 +23,8 @@ export function connectorFor(row: StoreRow): StoreConnector | null {
       return customConnector(row, creds, secret)
     case 'shopify':
       return shopifyConnector(row, creds, secret)
-    default:
-      throw new StoreError(`${row.kind} stores are not supported yet`)
+    case 'woocommerce':
+      return wooConnector(row, creds, secret)
   }
 }
 

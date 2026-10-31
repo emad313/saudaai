@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createStoreApp, openDb } from '@saudaai/demo-store'
 import { fakeShopify, shopifyDomain } from '../test/shopify.ts'
+import { fakeWoo, wooUrl } from '../test/woocommerce.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { testShop } from '../test/shop.ts'
 import { connectStore } from './index.ts'
@@ -65,6 +66,32 @@ const kinds: Record<string, () => Setup | Promise<Setup>> = {
       unknownId: 'nope',
       orderLine: 'maroon-kurti-m',
       forged: { headers: { 'x-saudaai-signature': 'sha256=00' }, raw: '[]' },
+    }
+  },
+  woocommerce: () => {
+    const woo = fakeWoo()
+    return {
+      fetch: woo.fetch as typeof fetch,
+      connect: async (shop, db) =>
+        (
+          await connectStore(
+            db,
+            shop,
+            {
+              kind: 'woocommerce',
+              baseUrl: wooUrl,
+              credentials: { consumerKey: 'ck_test', consumerSecret: 'cs_test' },
+              webhookSecret: 'wc_secret',
+            },
+            Date.now(),
+          )
+        ).connector!,
+      unknownId: '999',
+      orderLine: '101:201',
+      forged: {
+        headers: { 'x-wc-webhook-signature': 'AAAA', 'x-wc-webhook-topic': 'product.deleted' },
+        raw: '{"id":1}',
+      },
     }
   },
   shopify: () => {
@@ -290,5 +317,111 @@ describe('shopify specifics', () => {
     expect(shopify.ops.find((o) => o.op === 'inventoryAdjustQuantities')!.variables).toMatchObject({
       input: { changes: [{ delta: 3, inventoryItemId: 'gid://shopify/InventoryItem/42' }] },
     })
+  })
+})
+
+describe('woocommerce specifics', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const sign = (raw: string) => createHmac('sha256', 'wc_secret').update(raw).digest('base64')
+
+  async function connect() {
+    const t = await testShop()
+    const woo = fakeWoo()
+    vi.stubGlobal('fetch', woo.fetch)
+    const res = await connectStore(
+      t.db,
+      t.shop,
+      {
+        kind: 'woocommerce',
+        baseUrl: wooUrl,
+        credentials: { consumerKey: 'ck_test', consumerSecret: 'cs_test' },
+        webhookSecret: 'wc_secret',
+      },
+      Date.now(),
+    )
+    return { woo, connector: res.connector!, row: res.row }
+  }
+
+  it('reads variations as sizes and keeps out of stock at zero', async () => {
+    const { connector, row } = await connect()
+    expect(row.name).toBe("Nusrat's Shop")
+    const kurti = await connector.getProduct('101')
+    expect(kurti).toMatchObject({
+      status: 'active',
+      category: 'Kurti',
+      variants: [
+        { externalId: '101:201', size: 'M', pricePoisha: 150000, stock: 4 },
+        { externalId: '101:202', size: 'L', stock: 0 },
+      ],
+    })
+    expect((await connector.getProduct('102'))!.variants[0]).toMatchObject({
+      externalId: '102',
+      pricePoisha: 49950,
+      stock: null,
+    })
+  })
+
+  it('creates the order on hold and moves it to processing when paid', async () => {
+    const { woo, connector } = await connect()
+    const made = await connector.createOrder({
+      customer: { name: 'Mitu Akter', phone: '01711000111', area: 'Mirpur' },
+      lines: [
+        { variantExternalId: '101:201', qty: 2 },
+        { variantExternalId: '102', qty: 1 },
+      ],
+      shippingPoisha: 6000,
+      paymentMethod: 'bkash',
+      tags: ['saudaai', 'webchat'],
+    })
+    expect(made).toMatchObject({ externalId: '727', number: '727', totalPoisha: 306000 })
+    const sent = woo.calls.find((c) => c.method === 'POST' && c.path === '/orders')!.body
+    expect(sent).toMatchObject({
+      status: 'on-hold',
+      set_paid: false,
+      line_items: [
+        { product_id: 101, variation_id: 201, quantity: 2 },
+        { product_id: 102, quantity: 1 },
+      ],
+      shipping_lines: [{ total: '60.00' }],
+      billing: { first_name: 'Mitu', last_name: 'Akter', country: 'BD' },
+    })
+    await connector.updateOrder('727', { paidPoisha: 306000 })
+    expect(woo.calls.at(-1)).toMatchObject({
+      method: 'PUT',
+      path: '/orders/727',
+      body: { set_paid: true, status: 'processing' },
+    })
+  })
+
+  it('ignores the ping, and re-reads the product on a signed update', async () => {
+    const { connector } = await connect()
+    const ping = 'webhook_id=12'
+    expect(
+      await connector.parseWebhook({
+        headers: { 'x-wc-webhook-signature': sign(ping) },
+        raw: ping,
+      }),
+    ).toEqual([])
+    const raw = JSON.stringify({ id: 101, name: 'Indigo Block Print Kurti' })
+    const events = await connector.parseWebhook({
+      headers: { 'x-wc-webhook-signature': sign(raw), 'x-wc-webhook-topic': 'product.updated' },
+      raw,
+    })
+    expect(events[0]).toMatchObject({
+      type: 'product.upsert',
+      product: { externalId: '101', variants: [{}, {}] },
+    })
+  })
+
+  it('refuses plain http store urls at the api', async () => {
+    const { storeConnect } = await import('@saudaai/shared')
+    expect(
+      storeConnect.safeParse({
+        kind: 'woocommerce',
+        baseUrl: 'http://shop.example',
+        consumerKey: 'ck_x',
+        consumerSecret: 'cs_x',
+      }).success,
+    ).toBe(false)
   })
 })

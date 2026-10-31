@@ -1,0 +1,28 @@
+[
+  {
+    "id": 101,
+    "name": "Indigo Block Print Kurti",
+    "type": "variable",
+    "status": "publish",
+    "sku": "",
+    "price": "1500",
+    "manage_stock": false,
+    "stock_quantity": null,
+    "stock_status": "instock",
+    "categories": [{ "id": 15, "name": "Kurti", "slug": "kurti" }],
+    "images": [{ "id": 7, "src": "https://shop.example.com/wp-content/uploads/kurti.jpg" }]
+  },
+  {
+    "id": 102,
+    "name": "Jute Tote Bag",
+    "type": "simple",
+    "status": "publish",
+    "sku": "TOTE-1",
+    "price": "499.50",
+    "manage_stock": false,
+    "stock_quantity": null,
+    "stock_status": "instock",
+    "categories": [{ "id": 16, "name": "Bags", "slug": "bags" }],
+    "images": []
+  }
+]
