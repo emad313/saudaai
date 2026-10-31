@@ -362,7 +362,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
         category: p.category,
         status: p.status,
         pricePoisha: p.basePricePoisha,
-        imageUrl: p.imageId ? `/media/${p.imageId}` : null,
+        imageUrl: p.imageId ? `/media/${p.imageId}` : p.imageUrl,
         variants: (byProduct.get(p.id) ?? []).map((v) => ({
           id: v.id,
           size: v.size,

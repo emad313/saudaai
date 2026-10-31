@@ -34,7 +34,13 @@ export async function applyProduct(db: Db, store: StoreRow, p: ExternalProduct, 
       imageUrl: p.imageUrl ?? null,
     }
     const productId = local?.id ?? newId()
-    if (local) await tx.update(products).set(fields).where(eq(products.id, productId))
+    // A new store photo replaces the cached copy on next use.
+    const stale = local && local.imageUrl !== fields.imageUrl ? { imageId: null } : {}
+    if (local)
+      await tx
+        .update(products)
+        .set({ ...fields, ...stale })
+        .where(eq(products.id, productId))
     else {
       await tx.insert(products).values({
         id: productId,

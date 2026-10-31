@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { write } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
 import { products, variants } from '../db/schema.ts'
+import { hasImage } from '../catalog/image.ts'
 import { env } from '../env.ts'
 import { catalogScope, storeFor } from '../stores/index.ts'
 import { applyProduct } from '../stores/sync.ts'
@@ -32,7 +33,7 @@ function productView(p: Product, vs: Variant[]) {
     category: p.category,
     status: p.status,
     price: formatTaka(p.basePricePoisha),
-    hasPhoto: p.imageId !== null,
+    hasPhoto: hasImage(p),
     variants: vs.map(variantView),
   }
 }

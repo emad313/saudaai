@@ -1,3 +1,4 @@
+import { productImage } from '../catalog/image.ts'
 import { formatTaka } from '@saudaai/shared'
 import type { AdFormat } from '../agent/deps.ts'
 import type { Db } from '../db/client.ts'
@@ -131,10 +132,10 @@ export async function renderAds(
 ): Promise<Media[]> {
   const ctx: Ctx = { db, shop, actor: 'seller', now: Date.now() }
   const p = await requireProduct(ctx, input.productId)
-  if (!p.imageId)
-    throw new ToolError('no_photo', `${p.name} has no photo yet; send a photo of it first`)
-  const cut = await derived(db, p.imageId, 'cutout')
-  const file = await loadMedia(db, cut?.id ?? p.imageId)
+  const image = await productImage(db, p)
+  if (!image) throw new ToolError('no_photo', `${p.name} has no photo in the store yet`)
+  const cut = await derived(db, image.id, 'cutout')
+  const file = await loadMedia(db, cut?.id ?? image.id)
   if (!file) throw new ToolError('no_photo', `photo for ${p.name} is missing`)
   const sale = offerPrice(p.basePricePoisha, input.offerText)
   const attrs = Object.values(p.attributes).flat().join(' ')
@@ -169,7 +170,7 @@ export async function renderAds(
       width: s.width,
       height: s.height,
     })
-    out.push(await saveMedia(db, png, 'image/png', { role: 'ad', derivedFrom: p.imageId }))
+    out.push(await saveMedia(db, png, 'image/png', { role: 'ad', derivedFrom: image.id }))
   }
   return out
 }

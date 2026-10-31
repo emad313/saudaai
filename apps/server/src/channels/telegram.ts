@@ -1,3 +1,4 @@
+import { productImage } from '../catalog/image.ts'
 import { randomInt } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { Bot, InlineKeyboard, InputFile, InputMediaBuilder, Keyboard, type Context } from 'grammy'
@@ -65,7 +66,7 @@ export function createTelegram(db: Db) {
           .select()
           .from(products)
           .where(eq(products.id, String(pending.args.productId)))
-        image = p?.imageId ?? null
+        image = p ? ((await productImage(db, p))?.id ?? null) : null
       }
       const file = image ? await loadMedia(db, image) : null
       const sent = file

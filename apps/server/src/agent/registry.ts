@@ -2,6 +2,7 @@ import { formatTaka } from '@saudaai/shared'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { newId } from '../db/ids.ts'
+import { productImage } from '../catalog/image.ts'
 import { conversations, customerIdentities, orders, orderStatuses } from '../db/schema.ts'
 import { canSendFreeform } from '../channels/window.ts'
 import type { Ctx } from '../tools/ctx.ts'
@@ -504,11 +505,12 @@ export const tools: ToolDef[] = [
     expose: 'customer',
     run: async (ctx, a) => {
       const p = await requireProduct(ctx, a.productId)
-      if (!p.imageId) throw new ToolError('no_photo', `${p.name} has no photo yet`)
+      const image = await productImage(ctx.db, p)
+      if (!image) throw new ToolError('no_photo', `${p.name} has no photo in the store yet`)
       if (!ctx.conversation) throw new ToolError('no_channel', 'no conversation')
       await sendToCustomer(ctx.deps, ctx.conversation, {
         kind: 'image',
-        mediaId: p.imageId,
+        mediaId: image.id,
         caption: `${p.name} - ${formatTaka(p.basePricePoisha)}`,
       })
       return { sent: true, product: p.name }

@@ -1,3 +1,4 @@
+import { hasImage } from '../catalog/image.ts'
 import { formatTaka } from '@saudaai/shared'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { conversations, messages, products } from '../db/schema.ts'
@@ -33,7 +34,7 @@ export async function catalogBlock(ctx: Ctx) {
       )
       .join(' ')
     const draft = p.status === 'draft' ? ' (draft)' : ''
-    const photo = p.imageId ? ' [photo]' : ''
+    const photo = hasImage(p) ? ' [photo]' : ''
     return `${p.id} | ${p.name}${draft}${photo} | ${formatTaka(p.basePricePoisha)} | ${vs}`
   })
   return `Catalog (productId | name | price | variantId:size/color=available):\n${lines.join('\n') || '(empty)'}`
