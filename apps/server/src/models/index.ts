@@ -72,9 +72,12 @@ export function createModels(db: Db, env: Env): Models {
     model: need(model, name),
   })
   const agent = () =>
-    env.AGENT_PROVIDER === 'meta' ? meta(env.META_AGENT_MODEL, 'META_AGENT_MODEL') : baseten()
+    env.AGENT_PROVIDER === 'baseten' ? baseten() : meta(env.META_AGENT_MODEL, 'META_AGENT_MODEL')
+  // Muse Spark is multimodal, so the agent model covers vision and audio when no dedicated id is set.
   const vision = () =>
-    env.META_VISION_MODEL ? meta(env.META_VISION_MODEL, 'META_VISION_MODEL') : baseten()
+    env.META_VISION_MODEL
+      ? meta(env.META_VISION_MODEL, 'META_VISION_MODEL')
+      : meta(env.META_AGENT_MODEL, 'META_AGENT_MODEL')
 
   return {
     agentProvider: env.AGENT_PROVIDER,
@@ -114,7 +117,7 @@ export function createModels(db: Db, env: Env): Models {
           },
         })
       }
-      const ep = baseten()
+      const ep = meta(env.META_AGENT_MODEL, 'META_AGENT_MODEL')
       return tracked(db, {
         purpose: 'transcribe',
         provider: ep.provider,

@@ -33,15 +33,15 @@ Built with Meta's models for the Meta Global AI Developer Hackathon (Indie Devel
 
 ## Meta models
 
-| Model                         | Used for                                                                           |
-| ----------------------------- | ---------------------------------------------------------------------------------- |
-| Muse Spark Open (via Baseten) | Agent planner with tool calling, the default brain (open weights)                  |
-| Muse Spark (Meta Model API)   | Same agent through the API path; vision for product attributes and customer photos |
-| Muse Voice Transcribe         | Seller and customer voice notes (Bangla mixed with English)                        |
-| SAM 3.1                       | Cutting the product out of messy phone photos                                      |
-| Muse Image                    | Scenes behind the product in ad creatives                                          |
+| Model                                   | Used for                                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| Muse Spark (Meta Model API)             | Agent planner with tool calling, the default brain; vision for product photos |
+| Muse Voice Transcribe (Meta Model API)  | Seller and customer voice notes (Bangla mixed with English)                   |
+| SAM 3.1 (Meta Model API)                | Cutting the product out of messy phone photos                                 |
+| Muse Image (Meta Model API)             | Scenes behind the product in ad creatives                                     |
+| Muse Spark Open (via Baseten, optional) | Open-weight alternative for the agent brain (`AGENT_PROVIDER=baseten`)        |
 
-The agent runs on either provider with the same tools and the same eval suite (`AGENT_PROVIDER=baseten|meta`).
+Muse Spark on the Meta Model API is the default agent brain (`AGENT_PROVIDER=meta`). Muse Spark Open via Baseten is a supported alternative for the agent brain only; transcription, vision, SAM and image generation always use the Meta Model API. Both brains run the same tools and the same eval suite.
 
 ## How it works
 
@@ -54,7 +54,7 @@ The agent runs on either provider with the same tools and the same eval suite (`
         voice -> Voice Transcribe      photo -> SAM 3.1 + Muse Spark vision
                             |
                  agent loop, up to 6 steps
-                 (Muse Spark Open or Muse Spark)
+                 (Muse Spark, or Muse Spark Open)
                             |
              proposed tool calls, validated with zod
                             |
@@ -106,12 +106,18 @@ Bot commands: `/summary`, `/login`, `/reply <chat> <text>`, `/take <chat>`, `/re
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
-pnpm eval --provider baseten     # or meta
+pnpm eval                        # Muse Spark on the Meta Model API
+pnpm eval --provider baseten     # Muse Spark Open, needs BASETEN_API_KEY
 ```
 
 Unit and integration tests cover money math, stock reservation, order lifecycle, the agent loop with a scripted model, approvals, webhook parsing and signatures, the inbox, the HTTP API and rendering.
 
 The eval suite (`apps/server/evals/cases`) has 40 scripted situations across orders, stock, products from photos, payments, customer questions, ordering in chat and safety (prompt injection, discount pressure, a customer trying seller actions, negative stock, the 24-hour window). Each case runs against a fresh demo shop with the real model and is judged on outcomes in the database, not on wording. Results are written to `apps/server/evals/reports/<provider>.json`.
+
+| Agent brain                 | Eval score  |
+| --------------------------- | ----------- |
+| Muse Spark (Meta Model API) | not run yet |
+| Muse Spark Open (Baseten)   | not run yet |
 
 ## Deploying
 

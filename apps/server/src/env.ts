@@ -19,7 +19,7 @@ const schema = z.object({
   DEMO_SHOP_SLUG: z.string().default('nusrats-closet'),
   WEB_DIST: z.string().default('../web/dist'),
 
-  AGENT_PROVIDER: z.enum(['baseten', 'meta']).default('baseten'),
+  AGENT_PROVIDER: z.enum(['meta', 'baseten']).default('meta'),
   BASETEN_API_KEY: optional,
   BASETEN_BASE_URL: z.string().default('https://inference.baseten.co/v1'),
   BASETEN_MODEL: z.string().default('meta-models/muse-spark-open-1026'),

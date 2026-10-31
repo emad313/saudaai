@@ -15,7 +15,7 @@ const { values } = parseArgs({
     category: { type: 'string' },
   },
 })
-const provider = values.provider === 'meta' ? 'meta' : 'baseten'
+const provider = values.provider === 'baseten' ? 'baseten' : 'meta'
 const cases = loadCases().filter(
   (c) =>
     (!values.only || c.id === values.only) && (!values.category || c.category === values.category),
