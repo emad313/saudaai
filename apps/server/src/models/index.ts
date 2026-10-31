@@ -10,7 +10,7 @@ import type { Env } from '../env.ts'
 import { complete, parseJsonReply, type ChatMessage, type Endpoint, type ToolSpec } from './chat.ts'
 import { ModelError, postJson, request } from './http.ts'
 import { bestMask } from './sam.ts'
-import { hashOf, tracked } from './track.ts'
+import { dailyLimit, hashOf, tracked, type Call } from './track.ts'
 
 const run = promisify(execFile)
 
@@ -65,6 +65,8 @@ async function toWav(audio: Buffer): Promise<Buffer> {
 }
 
 export function createModels(db: Db, env: Env): Models {
+  const guard = dailyLimit(db, env.MODEL_DAILY_CALL_LIMIT)
+  const track = <T>(call: Call<T>) => tracked(db, call, guard)
   const baseten = (): Endpoint => ({
     provider: 'baseten',
     baseUrl: env.BASETEN_BASE_URL,
@@ -90,7 +92,7 @@ export function createModels(db: Db, env: Env): Models {
 
     async plan(messages, tools) {
       const ep = agent()
-      return tracked(db, {
+      return track({
         purpose: 'plan',
         provider: ep.provider,
         model: ep.model,
@@ -104,7 +106,7 @@ export function createModels(db: Db, env: Env): Models {
     async transcribe(audio) {
       if (env.META_TRANSCRIBE_MODEL) {
         const ep = meta(env.META_TRANSCRIBE_MODEL, 'META_TRANSCRIBE_MODEL')
-        return tracked(db, {
+        return track({
           purpose: 'transcribe',
           provider: ep.provider,
           model: ep.model,
@@ -136,7 +138,7 @@ export function createModels(db: Db, env: Env): Models {
         })
       }
       const ep = meta(env.META_AGENT_MODEL, 'META_AGENT_MODEL')
-      return tracked(db, {
+      return track({
         purpose: 'transcribe',
         provider: ep.provider,
         model: ep.model,
@@ -174,7 +176,7 @@ export function createModels(db: Db, env: Env): Models {
     async segment(image, prompt) {
       if (!env.META_SAM_MODEL) return null
       const ep = meta(env.META_SAM_MODEL, 'META_SAM_MODEL')
-      const mask = await tracked<string | null>(db, {
+      const mask = await track<string | null>({
         purpose: 'segment',
         provider: ep.provider,
         model: ep.model,
@@ -219,7 +221,7 @@ export function createModels(db: Db, env: Env): Models {
 
     async describe(image, hint) {
       const ep = vision()
-      const raw = await tracked<unknown>(db, {
+      const raw = await track<unknown>({
         purpose: 'describe',
         provider: ep.provider,
         model: ep.model,
@@ -263,7 +265,7 @@ export function createModels(db: Db, env: Env): Models {
 
     async image(prompt, size) {
       const ep = meta(env.META_IMAGE_MODEL, 'META_IMAGE_MODEL')
-      const b64 = await tracked<string>(db, {
+      const b64 = await track<string>({
         purpose: 'image',
         provider: ep.provider,
         model: ep.model,

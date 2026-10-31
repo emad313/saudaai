@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env } from '../env.ts'
+import { newId } from '../db/ids.ts'
+import { modelCalls } from '../db/schema.ts'
 import { testShop } from '../test/shop.ts'
 import { createModels } from './index.ts'
+import { ModelLimitError } from './track.ts'
 
 const meta = {
   ...env,
@@ -53,5 +56,32 @@ describe('createModels', () => {
       'BASETEN_API_KEY is not set',
     )
     expect(sent).toEqual([])
+  })
+})
+
+describe('daily call limit', () => {
+  it('blocks real calls past the limit and flags only the first refusal', async () => {
+    const { db } = await testShop()
+    const row = {
+      provider: 'meta',
+      model: 'm',
+      purpose: 'plan',
+      latencyMs: 1,
+      createdAt: Date.now(),
+    }
+    await db.insert(modelCalls).values([
+      { ...row, id: newId(), cacheHit: false },
+      { ...row, id: newId(), cacheHit: true },
+    ])
+    const models = createModels(db, { ...meta, MODEL_DAILY_CALL_LIMIT: 2 })
+    const ask = () => models.plan([{ role: 'user', content: 'hi' }], [])
+
+    await ask()
+    const first = await ask().catch((e: unknown) => e)
+    const second = await ask().catch((e: unknown) => e)
+    expect(first).toBeInstanceOf(ModelLimitError)
+    expect((first as ModelLimitError).first).toBe(true)
+    expect((second as ModelLimitError).first).toBe(false)
+    expect(sent).toHaveLength(1)
   })
 })

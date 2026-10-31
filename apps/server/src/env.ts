@@ -20,6 +20,7 @@ const schema = z.object({
   WEB_DIST: z.string().default('../web/dist'),
 
   AGENT_PROVIDER: z.enum(['meta', 'baseten']).default('meta'),
+  MODEL_DAILY_CALL_LIMIT: z.coerce.number().int().positive().default(500),
   BASETEN_API_KEY: optional,
   BASETEN_BASE_URL: z.string().default('https://inference.baseten.co/v1'),
   BASETEN_MODEL: z.string().default('meta-models/muse-spark-open-1026'),

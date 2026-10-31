@@ -4,6 +4,7 @@ import { newId } from '../db/ids.ts'
 import { activityLog, conversations } from '../db/schema.ts'
 import { log } from '../log.ts'
 import type { ChatMessage, ToolCall, ToolSpec } from '../models/chat.ts'
+import { ModelLimitError } from '../models/track.ts'
 import { ToolError, type Actor, type Shop } from '../tools/ctx.ts'
 import { contextBlock, history } from './context.ts'
 import { handoffReply, holdingReply, retryReply } from './copy.ts'
@@ -228,7 +229,12 @@ export async function runTurn(
     log.error({ err, turnId: ctx.turnId, actor }, 'agent turn failed')
     result.failed = true
     if (actor === 'customer') await customerFailed(deps, ctx, conversation)
-    else
+    if (err instanceof ModelLimitError && (err.first || actor !== 'customer'))
+      await deps.seller.notify(
+        shop,
+        `Today's AI limit of ${err.limit} model calls is used up. The assistant is paused until midnight; customers get a "please try again" reply. Raise MODEL_DAILY_CALL_LIMIT to continue now.`,
+      )
+    else if (actor !== 'customer')
       await deps.seller.notify(
         shop,
         'Model is not responding right now. Please try again in a minute.',

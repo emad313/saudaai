@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, count, eq, gte } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
 import { modelCache, modelCalls } from '../db/schema.ts'
 import { log } from '../log.ts'
+import { dhakaDayStart } from '../tools/text.ts'
+import { ModelError } from './http.ts'
 
 export function hashOf(...parts: (string | Buffer)[]): string {
   const h = createHash('sha256')
@@ -11,7 +13,32 @@ export function hashOf(...parts: (string | Buffer)[]): string {
   return h.digest('hex')
 }
 
-type Call<T> = {
+export class ModelLimitError extends ModelError {
+  constructor(
+    readonly limit: number,
+    readonly first: boolean,
+  ) {
+    super(`daily model call limit of ${limit} reached`)
+  }
+}
+
+// Cache hits cost nothing, so only real calls count against the daily budget.
+export function dailyLimit(db: Db, limit: number) {
+  let noticedDay = 0
+  return async () => {
+    const day = dhakaDayStart(Date.now())
+    const [row] = await db
+      .select({ n: count() })
+      .from(modelCalls)
+      .where(and(gte(modelCalls.createdAt, day), eq(modelCalls.cacheHit, false)))
+    if ((row?.n ?? 0) < limit) return
+    const first = noticedDay !== day
+    noticedDay = day
+    throw new ModelLimitError(limit, first)
+  }
+}
+
+export type Call<T> = {
   purpose: string
   provider: string
   model: string
@@ -19,7 +46,7 @@ type Call<T> = {
   run: () => Promise<{ value: T; inputUnits?: number; outputUnits?: number }>
 }
 
-export async function tracked<T>(db: Db, call: Call<T>): Promise<T> {
+export async function tracked<T>(db: Db, call: Call<T>, guard?: () => Promise<void>): Promise<T> {
   if (call.cacheKey) {
     const [hit] = await db.select().from(modelCache).where(eq(modelCache.key, call.cacheKey))
     if (hit) {
@@ -27,6 +54,7 @@ export async function tracked<T>(db: Db, call: Call<T>): Promise<T> {
       return hit.value as T
     }
   }
+  await guard?.()
   const started = Date.now()
   try {
     const out = await call.run()

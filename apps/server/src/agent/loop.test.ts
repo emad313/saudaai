@@ -1,10 +1,12 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { orders, pendingActions, shops } from '../db/schema.ts'
+import { ModelLimitError } from '../models/track.ts'
 import { call, calls, fakeDeps, say } from '../test/deps.ts'
 import { chat, testShop } from '../test/shop.ts'
 import { findCustomers } from '../tools/customers.ts'
 import { findProducts } from '../tools/products.ts'
+import { retryReply } from './copy.ts'
 import { runTurn } from './loop.ts'
 import { approve, cancel } from './pending.ts'
 
@@ -193,5 +195,37 @@ describe('customer turn', () => {
     expect(o!.status).toBe('confirmed')
     expect(f.approvals).toHaveLength(0)
     expect(f.sent.map((s) => s.msg.kind)).toEqual(['text', 'image', 'text'])
+  })
+})
+
+describe('daily model limit', () => {
+  const overLimit = (first: boolean) => () => {
+    throw new ModelLimitError(500, first)
+  }
+
+  it('gives customers the retry text and tells the owner only once a day', async () => {
+    const f = fakeDeps(t.db, [overLimit(true), overLimit(false)])
+    for (const text of ['kurti ache?', 'hijab ache?']) {
+      const conv = await chat(t.db, t.shop.id, text)
+      const res = await runTurn(f.deps, {
+        shop: t.shop,
+        actor: 'customer',
+        conversation: conv,
+        inputKind: 'text',
+      })
+      expect(res.failed).toBe(true)
+    }
+    expect(f.sent.map((s) => s.msg)).toEqual([
+      { kind: 'text', text: retryReply },
+      { kind: 'text', text: retryReply },
+    ])
+    expect(f.notes.filter((n) => n.text.includes('AI limit'))).toHaveLength(1)
+  })
+
+  it('tells the owner about the limit when they ask for something', async () => {
+    const f = fakeDeps(t.db, [overLimit(false)])
+    const conv = await chat(t.db, t.shop.id, 'aajker sales koto?', { channel: 'telegram_seller' })
+    await runTurn(f.deps, { shop: t.shop, actor: 'seller', conversation: conv, inputKind: 'text' })
+    expect(f.notes.at(-1)!.text).toContain('AI limit of 500')
   })
 })
