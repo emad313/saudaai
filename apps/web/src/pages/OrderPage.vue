@@ -66,7 +66,19 @@ onMounted(load)
       <StatusText :status="order.status" />
       <StatusText :status="order.paymentStatus" />
     </div>
-    <p class="mt-1 text-sm text-muted">{{ when(order.createdAt) }}</p>
+    <p class="mt-1 text-sm text-muted">
+      {{ when(order.createdAt) }}
+      <template v-if="order.externalNumber"
+        >, store order
+        <a
+          v-if="order.adminUrl"
+          :href="order.adminUrl"
+          target="_blank"
+          class="font-medium text-ink hover:underline"
+          >{{ order.externalNumber }}</a
+        ><span v-else>{{ order.externalNumber }}</span></template
+      >
+    </p>
 
     <div
       class="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"

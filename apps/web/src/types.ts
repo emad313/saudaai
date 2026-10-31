@@ -54,6 +54,8 @@ export type OrderDetail = {
   paid: string
   due: string
   duePoisha: number
+  externalNumber: string | null
+  adminUrl: string | null
   createdAt: number
 }
 

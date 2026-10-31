@@ -1,6 +1,7 @@
 import { formatTaka, sumPoisha } from '@saudaai/shared'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
 import { expenses, orderLines, orders, products, variants } from '../db/schema.ts'
+import { catalogScope } from '../stores/index.ts'
 import type { Ctx } from './ctx.ts'
 import { dhakaDate, dhakaDayStart } from './text.ts'
 
@@ -94,6 +95,7 @@ export async function lowStock(ctx: Ctx, threshold = 2) {
       and(
         eq(products.shopId, ctx.shop.id),
         eq(products.status, 'active'),
+        await catalogScope(ctx.db, ctx.shop.id),
         sql`${variants.stock} - ${variants.reserved} <= ${threshold}`,
       ),
     )

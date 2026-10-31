@@ -89,8 +89,10 @@ async function orderRow(ctx: TurnCtx, orderId: string) {
 async function confirmAndSend(ctx: TurnCtx, orderId: string) {
   const seller = asSeller(ctx)
   const row = await orderRow(ctx, orderId)
-  if (row.status === 'draft') await updateOrderStatus(seller, { orderId, status: 'confirmed' })
-  else if (row.status !== 'confirmed') {
+  if (row.status === 'draft') {
+    const confirmed = await updateOrderStatus(seller, { orderId, status: 'confirmed' })
+    if ('storeWarning' in confirmed) await ctx.deps.seller.notify(ctx.shop, confirmed.storeWarning)
+  } else if (row.status !== 'confirmed') {
     throw new ToolError('bad_status', `order #${row.number} is ${row.status}`)
   }
   const order = await getOrder(seller, { orderId })

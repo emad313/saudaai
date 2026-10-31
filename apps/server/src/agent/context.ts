@@ -2,6 +2,7 @@ import { formatTaka } from '@saudaai/shared'
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { messages, products } from '../db/schema.ts'
 import type { ChatMessage } from '../models/chat.ts'
+import { catalogScope } from '../stores/index.ts'
 import type { Ctx } from '../tools/ctx.ts'
 import { listOrders } from '../tools/orders.ts'
 import { available, loadVariants } from '../tools/products.ts'
@@ -11,7 +12,13 @@ export async function catalogBlock(ctx: Ctx) {
   const rows = await ctx.db
     .select()
     .from(products)
-    .where(and(eq(products.shopId, ctx.shop.id), inArray(products.status, [...statuses])))
+    .where(
+      and(
+        eq(products.shopId, ctx.shop.id),
+        inArray(products.status, [...statuses]),
+        await catalogScope(ctx.db, ctx.shop.id),
+      ),
+    )
     .orderBy(desc(products.createdAt))
     .limit(50)
   const byProduct = await loadVariants(

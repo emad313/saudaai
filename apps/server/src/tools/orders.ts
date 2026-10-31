@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { write, type Tx } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
 import {
+  conversations,
   customers,
   orderLines,
   orders,
@@ -12,6 +13,10 @@ import {
   shops,
   variants,
 } from '../db/schema.ts'
+import { log } from '../log.ts'
+import { storeFor, type Store } from '../stores/index.ts'
+import { applyProduct } from '../stores/sync.ts'
+import { StoreError } from '../stores/types.ts'
 import { ToolError, type Ctx } from './ctx.ts'
 import { requireCustomer } from './customers.ts'
 import { deliveryFor } from './delivery.ts'
@@ -65,6 +70,62 @@ async function reserve(tx: Tx, shopId: string, line: LineInput) {
   }
 }
 
+async function priceLine(tx: Tx, shopId: string, line: LineInput) {
+  const [row] = await tx
+    .select({ v: variants, p: products })
+    .from(variants)
+    .innerJoin(products, eq(products.id, variants.productId))
+    .where(and(eq(variants.id, line.variantId), eq(products.shopId, shopId)))
+  if (!row) throw new ToolError('not_found', `variant ${line.variantId} not found`)
+  if (row.p.status !== 'active') {
+    throw new ToolError('not_active', `${row.p.name} is not in the active catalog`)
+  }
+  if (row.v.stock !== null && row.v.stock < line.qty) {
+    const label = [row.p.name, row.v.size, row.v.color].filter(Boolean).join(' ')
+    throw new ToolError('out_of_stock', `${label}: asked ${line.qty}, only ${row.v.stock} in stock`)
+  }
+  return {
+    variantId: row.v.id,
+    qty: line.qty,
+    unitPricePoisha: row.v.pricePoisha,
+    lineTotalPoisha: row.v.pricePoisha * line.qty,
+  }
+}
+
+// The store is the source of truth: refresh price and stock from it right before ordering.
+async function refreshFromStore(ctx: Ctx, store: Store, lines: LineInput[]) {
+  const rows = await ctx.db
+    .select({ p: products })
+    .from(variants)
+    .innerJoin(products, eq(products.id, variants.productId))
+    .where(
+      inArray(
+        variants.id,
+        lines.map((l) => l.variantId),
+      ),
+    )
+  const seen = new Set<string>()
+  for (const { p } of rows) {
+    if (!p.externalId || seen.has(p.externalId)) continue
+    seen.add(p.externalId)
+    const live = await storeCall(() => store.connector!.getProduct(p.externalId!))
+    if (!live) {
+      await ctx.db.update(products).set({ status: 'archived' }).where(eq(products.id, p.id))
+      throw new ToolError('not_found', `${p.name} is no longer in the store`)
+    }
+    await applyProduct(ctx.db, store.row!, live, ctx.now)
+  }
+}
+
+async function storeCall<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (!(err instanceof StoreError)) throw err
+    throw new ToolError('store_failed', `the store did not accept it: ${err.message}`)
+  }
+}
+
 export async function createOrder(
   ctx: Ctx,
   args: {
@@ -87,10 +148,20 @@ export async function createOrder(
   const customer = await requireCustomer(ctx, args.customerId)
   const delivery = deliveryFor(ctx.shop, args.deliveryArea)
   const orderId = newId()
+  const store = await storeFor(ctx.db, ctx.shop.id)
+  const merged = mergeLines(args.lines)
+  if (store.connector) await refreshFromStore(ctx, store, merged)
 
   await write(ctx.db, async (tx) => {
     const lines = []
-    for (const line of mergeLines(args.lines)) lines.push(await reserve(tx, ctx.shop.id, line))
+    for (const line of merged) {
+      // External stores decrement stock when the order lands there; only builtin reserves locally.
+      lines.push(
+        store.connector
+          ? await priceLine(tx, ctx.shop.id, line)
+          : await reserve(tx, ctx.shop.id, line),
+      )
+    }
     const subtotal = sumPoisha(lines.map((l) => l.lineTotalPoisha))
     const [seq] = await tx
       .update(shops)
@@ -113,6 +184,7 @@ export async function createOrder(
       totalPoisha: subtotal + delivery.poisha,
       note: args.note ?? null,
       source: args.source,
+      storeId: store.connector ? store.row!.id : null,
       createdAt: ctx.now,
       updatedAt: ctx.now,
     })
@@ -169,8 +241,53 @@ export async function getOrder(ctx: Ctx, ref: { orderId?: string; number?: numbe
     due: formatTaka(due),
     totalPoisha: o.totalPoisha,
     duePoisha: due,
+    externalNumber: o.externalNumber,
+    adminUrl: o.adminUrl,
     createdAt: o.createdAt,
   }
+}
+
+async function pushToStore(ctx: Ctx, store: Store, o: Order) {
+  const [c] = await ctx.db.select().from(customers).where(eq(customers.id, o.customerId))
+  const lines = await ctx.db
+    .select({ qty: orderLines.qty, externalId: variants.externalId })
+    .from(orderLines)
+    .innerJoin(variants, eq(variants.id, orderLines.variantId))
+    .where(eq(orderLines.orderId, o.id))
+  const [conv] = o.conversationId
+    ? await ctx.db.select().from(conversations).where(eq(conversations.id, o.conversationId))
+    : []
+  const made = await storeCall(() =>
+    store.connector!.createOrder({
+      customer: {
+        name: c?.name ?? 'Customer',
+        phone: c?.phone ?? undefined,
+        address: o.deliveryAddress ?? undefined,
+        area: o.deliveryArea,
+      },
+      lines: lines.map((l) => ({ variantExternalId: l.externalId!, qty: l.qty })),
+      shippingPoisha: o.deliveryPoisha,
+      paymentMethod: o.paymentMethod,
+      note: o.note ?? undefined,
+      tags: ['saudaai', conv?.channel ?? o.source],
+    }),
+  )
+  await ctx.db
+    .update(orders)
+    .set({
+      externalId: made.externalId,
+      externalNumber: made.number,
+      adminUrl: made.adminUrl ?? null,
+    })
+    .where(eq(orders.id, o.id))
+  if (made.totalPoisha !== o.totalPoisha) {
+    log.warn(
+      { orderId: o.id, ours: o.totalPoisha, store: made.totalPoisha },
+      'store total differs from ours',
+    )
+    return `store total ${formatTaka(made.totalPoisha)} differs from ours ${formatTaka(o.totalPoisha)}, check order ${made.number} in the store`
+  }
+  return null
 }
 
 export async function updateOrderStatus(ctx: Ctx, args: { orderId: string; status: OrderStatus }) {
@@ -181,8 +298,25 @@ export async function updateOrderStatus(ctx: Ctx, args: { orderId: string; statu
       `order #${o.number} is ${o.status}, cannot become ${args.status}`,
     )
   }
+  let storeWarning: string | null = null
+  if (o.storeId) {
+    const store = await storeFor(ctx.db, ctx.shop.id)
+    if (store.connector && store.row?.id === o.storeId) {
+      if (args.status === 'confirmed' && !o.externalId) {
+        storeWarning = await pushToStore(ctx, store, o)
+      } else if (o.externalId) {
+        await storeCall(() =>
+          store.connector!.updateOrder(o.externalId!, {
+            status: args.status as Exclude<OrderStatus, 'draft'>,
+          }),
+        )
+      }
+    }
+  }
   await write(ctx.db, async (tx) => {
-    const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, o.id))
+    const lines = o.storeId
+      ? []
+      : await tx.select().from(orderLines).where(eq(orderLines.orderId, o.id))
     for (const l of lines) {
       if (args.status === 'cancelled') {
         await tx
@@ -205,7 +339,8 @@ export async function updateOrderStatus(ctx: Ctx, args: { orderId: string; statu
       .set({ status: args.status, updatedAt: ctx.now })
       .where(eq(orders.id, o.id))
   })
-  return getOrder(ctx, { orderId: o.id })
+  const order = await getOrder(ctx, { orderId: o.id })
+  return storeWarning ? { ...order, storeWarning } : order
 }
 
 export async function recordPayment(
@@ -220,6 +355,17 @@ export async function recordPayment(
     throw new ToolError('overpaid', `order #${o.number} only has ${formatTaka(due)} due`)
   }
   const paid = o.paidPoisha + args.amountPoisha
+  if (o.externalId) {
+    const store = await storeFor(ctx.db, ctx.shop.id)
+    if (store.connector && store.row?.id === o.storeId) {
+      await storeCall(() =>
+        store.connector!.updateOrder(o.externalId!, {
+          paidPoisha: paid,
+          note: `SaudaAI: ${formatTaka(args.amountPoisha)} received by ${args.method}`,
+        }),
+      )
+    }
+  }
   await write(ctx.db, async (tx) => {
     await tx.insert(payments).values({
       id: newId(),

@@ -32,6 +32,7 @@ import type { Ctx, Shop } from '../tools/ctx.ts'
 import { customerView, requireCustomer } from '../tools/customers.ts'
 import { getOrder, listOrders, recordPayment, updateOrderStatus } from '../tools/orders.ts'
 import { adjustStock, getProduct, loadVariants, updateProduct } from '../tools/products.ts'
+import { catalogScope } from '../stores/index.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
@@ -197,6 +198,7 @@ export function sellerRoutes(deps: Deps) {
       .where(
         and(
           eq(products.shopId, shop.id),
+          await catalogScope(db, shop.id),
           status ? eq(products.status, status as 'active') : ne(products.status, 'archived'),
           q ? like(products.name, `%${q}%`) : undefined,
         ),

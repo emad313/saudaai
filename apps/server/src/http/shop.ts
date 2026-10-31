@@ -13,6 +13,7 @@ import { newId } from '../db/ids.ts'
 import { conversations, messages, products, shops } from '../db/schema.ts'
 import { env } from '../env.ts'
 import type { Inbox } from '../inbox.ts'
+import { catalogScope } from '../stores/index.ts'
 import { available, loadVariants } from '../tools/products.ts'
 import { body } from './body.ts'
 
@@ -79,7 +80,13 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
     const rows = await db
       .select()
       .from(products)
-      .where(and(eq(products.shopId, shop.id), eq(products.status, 'active')))
+      .where(
+        and(
+          eq(products.shopId, shop.id),
+          eq(products.status, 'active'),
+          await catalogScope(db, shop.id),
+        ),
+      )
     const byProduct = await loadVariants(
       { db, shop, actor: 'customer', now: deps.now() },
       rows.map((p) => p.id),

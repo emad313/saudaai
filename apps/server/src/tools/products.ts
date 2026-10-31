@@ -3,6 +3,9 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { write } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
 import { products, variants } from '../db/schema.ts'
+import { env } from '../env.ts'
+import { catalogScope, storeFor } from '../stores/index.ts'
+import { applyProduct } from '../stores/sync.ts'
 import { ToolError, type Ctx } from './ctx.ts'
 import { normalize, tokens } from './text.ts'
 
@@ -60,7 +63,13 @@ export async function findProducts(ctx: Ctx, args: { query: string; limit?: numb
   const rows = await ctx.db
     .select()
     .from(products)
-    .where(and(eq(products.shopId, ctx.shop.id), inArray(products.status, [...statuses])))
+    .where(
+      and(
+        eq(products.shopId, ctx.shop.id),
+        inArray(products.status, [...statuses]),
+        await catalogScope(ctx.db, ctx.shop.id),
+      ),
+    )
   const byProduct = await loadVariants(
     ctx,
     rows.map((p) => p.id),
@@ -114,6 +123,39 @@ export async function createProductDraft(
     mediaId?: string
   },
 ) {
+  const store = await storeFor(ctx.db, ctx.shop.id)
+  if (store.connector) {
+    if (!store.connector.createProduct) {
+      throw new ToolError(
+        'add_in_store',
+        `add ${args.name} in your ${store.connector.kind} store admin; it will appear here after the next sync`,
+      )
+    }
+    const rows = args.variants.length ? args.variants : [{ stock: 0 }]
+    const made = await store.connector.createProduct({
+      name: args.name,
+      category: args.category,
+      status: 'draft',
+      imageUrl: args.mediaId ? `${env.PUBLIC_BASE_URL}/media/${args.mediaId}` : undefined,
+      variants: rows.map((v) => ({
+        externalId: '',
+        size: v.size,
+        color: v.color,
+        pricePoisha: v.pricePoisha ?? args.pricePoisha,
+        stock: v.stock,
+      })),
+    })
+    const productId = await applyProduct(ctx.db, store.row!, made, ctx.now)
+    await ctx.db
+      .update(products)
+      .set({
+        aliases: args.aliases ?? [],
+        attributes: args.attributes ?? {},
+        imageId: args.mediaId ?? null,
+      })
+      .where(eq(products.id, productId))
+    return getProduct(ctx, { productId })
+  }
   const productId = newId()
   await write(ctx.db, async (tx) => {
     await tx.insert(products).values({
@@ -147,7 +189,11 @@ export async function setProductStatus(
   ctx: Ctx,
   args: { productId: string; status: Product['status'] },
 ) {
-  await requireProduct(ctx, args.productId)
+  const p = await requireProduct(ctx, args.productId)
+  if (p.externalId && args.status === 'active') {
+    const store = await storeFor(ctx.db, ctx.shop.id)
+    await store.connector?.publishProduct?.(p.externalId)
+  }
   await ctx.db.update(products).set({ status: args.status }).where(eq(products.id, args.productId))
   return getProduct(ctx, { productId: args.productId })
 }
@@ -192,6 +238,19 @@ export async function adjustStock(
   args: { variantId: string; delta: number; reason: string },
 ) {
   const { p, v: before } = await requireVariant(ctx, args.variantId)
+  if (p.externalId) {
+    const store = await storeFor(ctx.db, ctx.shop.id)
+    if (!store.connector?.adjustStock || !before.externalId) {
+      throw new ToolError(
+        'in_store',
+        `stock for ${p.name} is managed in your store, change it there`,
+      )
+    }
+    const stock = await store.connector.adjustStock(before.externalId, args.delta)
+    await ctx.db.update(variants).set({ stock }).where(eq(variants.id, before.id))
+    const { v } = await requireVariant(ctx, args.variantId)
+    return { product: p.name, ...variantView(v), stock: v.stock, reason: args.reason }
+  }
   if (before.stock === null) {
     throw new ToolError('untracked', `the store does not track stock for ${p.name}`)
   }
