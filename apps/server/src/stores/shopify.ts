@@ -439,6 +439,9 @@ export function shopifyConnector(
       const item = data.productVariant?.inventoryItem
       const level = item?.inventoryLevels.nodes[0]
       if (!item || !level) throw new StoreError('shopify: this variant has no inventory level')
+      // Shopify would happily go negative; stock never does here.
+      const now = level.quantities[0]?.quantity ?? 0
+      if (now + delta < 0) throw new StoreError(`only ${now} in stock`, 409)
       const res = await gql<{ inventoryAdjustQuantities: { userErrors: { message: string }[] } }>(
         `mutation($input: InventoryAdjustQuantitiesInput!) { inventoryAdjustQuantities(input: $input) { userErrors { message } } }`,
         {

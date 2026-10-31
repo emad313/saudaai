@@ -80,6 +80,7 @@ export function customConnector(row: StoreRow, creds: Credentials, secret: strin
       const res = await call('POST', '/stock', { variantExternalId, delta })
       if (res.status === 404 || res.status === 405)
         throw new StoreError('the site does not take stock changes from SaudaAI', 404)
+      if (res.status === 409) throw new StoreError((await failure(res)).message, 409)
       return (await json(res, z.object({ stock: z.number().int() }))).stock
     },
     async publishPost(post) {

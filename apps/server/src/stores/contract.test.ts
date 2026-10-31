@@ -518,7 +518,9 @@ describe('custom store writes', () => {
   it('changes stock on the demo store and refuses untracked items', async () => {
     const connector = await connectDemo()
     expect(await connector.adjustStock!('maroon-kurti-m', 3)).toBe(7)
-    expect(await connector.adjustStock!('maroon-kurti-m', -10)).toBe(0)
+    await expect(connector.adjustStock!('maroon-kurti-m', -10)).rejects.toMatchObject({
+      status: 409,
+    })
     await expect(connector.adjustStock!('nope', 1)).rejects.toMatchObject({ status: 404 })
   })
 

@@ -58,6 +58,7 @@ async function inStore<T>(what: string, fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (!(err instanceof StoreError)) throw err
+    if (err.status === 409) throw new ToolError('stock_negative', `cannot ${what}: ${err.message}`)
     throw new ToolError(
       err.status === 404 ? 'in_store' : 'store_failed',
       err.status === 404

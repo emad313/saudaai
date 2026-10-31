@@ -325,7 +325,8 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
       }>('GET', path)
       if (data.manage_stock !== true)
         throw new StoreError('woocommerce: stock is not tracked for this item')
-      const stock = Math.max(0, (data.stock_quantity ?? 0) + delta)
+      const stock = (data.stock_quantity ?? 0) + delta
+      if (stock < 0) throw new StoreError(`only ${data.stock_quantity ?? 0} in stock`, 409)
       await call('PUT', path, { stock_quantity: stock })
       return stock
     },

@@ -272,7 +272,8 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     })
     if (!rows[0]) return c.json({ error: 'not found' }, 404)
     if (rows[0].stock === null) return c.json({ error: 'stock is not tracked for this item' }, 409)
-    const stock = Math.max(0, Number(rows[0].stock) + body.data.delta)
+    const stock = Number(rows[0].stock) + body.data.delta
+    if (stock < 0) return c.json({ error: `only ${rows[0].stock} in stock` }, 409)
     await db.execute({
       sql: 'update variants set stock = ? where id = ?',
       args: [stock, body.data.variantExternalId],
