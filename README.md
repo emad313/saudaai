@@ -229,14 +229,14 @@ pnpm eval --provider baseten     # Muse Spark Open, needs BASETEN_API_KEY
 
 Tests cover money math, stock, the order lifecycle, the agent loop with a scripted model, approvals, webhook parsing and signatures, the inbox, the HTTP API, rendering, the widget API, analytics, and a connector contract suite that runs the same checks against Shopify and WooCommerce fixtures, a fake custom site and the real demo store.
 
-The eval suite (`apps/server/evals/cases`) has 46 situations across orders, stock, products from photos, payments, customer questions, ordering in chat, safety (prompt injection, discount pressure, a customer trying owner actions, negative stock, the 24-hour window), connected stores (order created in the store on confirm, price changed since the last sync, sold out since the last sync), analytics by voice, widget product context and Instagram. Each case runs against a fresh fixture shop (a made-up catalog that exists only for tests and evals) with the real model and is judged on outcomes in the database and the store, not on wording. Reports are in `apps/server/evals/reports/`.
+The eval suite (`apps/server/evals/cases`) has 49 situations across orders, stock, products from photos, payments, customer questions, ordering in chat, safety (prompt injection, discount pressure, a customer trying owner actions, negative stock, the 24-hour window), connected stores (order created in the store on confirm, price changed since the last sync, sold out since the last sync), analytics by voice, widget product context, Instagram, store photos to customers, and promotion (banner to the website, ad to the Facebook Page, both waiting for approval). Each case runs against a fresh fixture shop (a made-up catalog that exists only for tests and evals) with the real model and is judged on outcomes in the database and the store, not on wording. Reports are in `apps/server/evals/reports/`.
 
-| Run (Muse Spark, Meta Model API, 2026-10-31) | Score |
+| Run (Muse Spark, Meta Model API, 2026-11-01) | Score |
 | -------------------------------------------- | ----- |
-| Built-in catalog (fixture shop)              | 46/46 |
-| Same cases, shop connected to the demo store | 40/46 |
+| Fixture catalog (built-in store)             | 49/49 |
+| Same cases, shop connected to the demo store | 49/49 |
 
-In the connected-store run, 5 of the 6 misses are photo-to-product and stock changes, which the custom Store API cannot do yet (the agent correctly tells the owner to do them in the store admin), and 1 is an eval harness bug; both are being fixed. Muse Spark Open has not been run (no Baseten key).
+Muse Spark Open has not been run (no Baseten key).
 
 ## Deploying
 
