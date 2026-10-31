@@ -65,3 +65,31 @@
   expect:
     reply: { containsAny: ['450', '৪৫০'] }
     held: false
+
+- id: store-photo-to-customer
+  category: connected store
+  actor: customer
+  setup: { store: true }
+  input: navy kurti tar chobi dekhan please
+  expect:
+    calls: [send_product_photo]
+    sentImages: 1
+
+- id: banner-to-website
+  category: promotion
+  actor: seller
+  setup: { store: true }
+  input: Maroon kurti er eid offer banner banao, 10% off, ar website e diye dao
+  expect:
+    calls: [make_ad]
+    pending: [post_to_website]
+    noOrder: true
+
+- id: ad-to-facebook-page
+  category: promotion
+  actor: seller
+  input: Jersey hijab er ekta ad baniye amader facebook page e post koro
+  expect:
+    calls: [make_ad]
+    pending: [post_to_page]
+    noOrder: true

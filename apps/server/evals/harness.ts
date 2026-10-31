@@ -140,10 +140,16 @@ async function withStore() {
   const storeDb = await openStoreDb(':memory:')
   const app = createStoreApp(storeDb, { token: storeToken })
   const real = globalThis.fetch
-  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) =>
-    String(input instanceof Request ? input.url : input).startsWith(storeBase)
-      ? app.fetch(new Request(String(input), init))
-      : real(input, init)) as typeof fetch
+  const photo = await png()
+  // Store photos live on the store's own CDN; give every product one so photo cases can use them.
+  await storeDb.execute(`update products set image_url = '${storeBase}/img/' || id || '.png'`)
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input)
+    if (url.startsWith(`${storeBase}/img/`)) {
+      return new Response(new Uint8Array(photo), { headers: { 'content-type': 'image/png' } })
+    }
+    return url.startsWith(storeBase) ? app.fetch(new Request(url, init)) : real(input, init)
+  }) as typeof fetch
   return { storeDb, restore: () => (globalThis.fetch = real) }
 }
 
@@ -261,6 +267,9 @@ async function runIn(
       stockKeys.map(async (k) => [k, (await variantByKey(db, k)).stock ?? 0] as const),
     ),
   )
+  const productsBefore = new Set(
+    (await db.select({ id: products.id }).from(products)).map((p) => p.id),
+  )
   const [baseline] = await db.select({ n: sql<number>`max(${orders.number})` }).from(orders)
   const lastNumber = Number(baseline?.n ?? 0)
 
@@ -337,6 +346,7 @@ async function runIn(
     : 0
   const failures = await check(c, {
     db,
+    productsBefore,
     storeOrders,
     shopId: shop.id,
     since: now,
@@ -373,6 +383,7 @@ function replyOf(c: EvalCase, notes: { text: string }[], sent: OutboundMessage[]
 
 type State = {
   db: Db
+  productsBefore: Set<string>
   storeOrders: number
   shopId: string
   since: number
@@ -483,10 +494,7 @@ async function check(c: EvalCase, st: State): Promise<string[]> {
     if (now - was !== delta) out.push(`stock ${key} changed by ${now - was}, expected ${delta}`)
   }
 
-  const added = await db
-    .select()
-    .from(products)
-    .where(gt(products.createdAt, st.since - 1))
+  const added = (await db.select().from(products)).filter((p) => !st.productsBefore.has(p.id))
   if (e.product) {
     const p = await db
       .select()

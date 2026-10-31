@@ -13,9 +13,9 @@ function idFrom(messages: ChatMessage[], name: string, label: string) {
 }
 
 describe('eval cases', () => {
-  it('has 46 well formed cases with unique ids', () => {
-    expect(cases).toHaveLength(46)
-    expect(new Set(cases.map((c) => c.id)).size).toBe(46)
+  it('has 49 well formed cases with unique ids', () => {
+    expect(cases).toHaveLength(49)
+    expect(new Set(cases.map((c) => c.id)).size).toBe(49)
   })
 })
 
