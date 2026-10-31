@@ -25,4 +25,5 @@ Meta app > Webhooks (Messenger and WhatsApp):
   Callback URL:  ${base}/webhooks/meta
   Verify token:  the value of META_VERIFY_TOKEN
   Messenger fields: messages, messaging_postbacks
+  Instagram fields: messages (Instagram product on the same app, same callback url)
   WhatsApp fields:  messages`)

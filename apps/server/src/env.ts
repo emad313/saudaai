@@ -48,6 +48,7 @@ const schema = z.object({
   META_VERIFY_TOKEN: optional,
   MESSENGER_PAGE_ID: optional,
   MESSENGER_PAGE_TOKEN: optional,
+  INSTAGRAM_ACCOUNT_ID: optional,
   WHATSAPP_PHONE_NUMBER_ID: optional,
   WHATSAPP_TOKEN: optional,
   WHATSAPP_REMINDER_TEMPLATE: z.string().default('payment_reminder'),

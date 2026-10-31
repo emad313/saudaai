@@ -1,9 +1,10 @@
 import { createHmac } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import messengerVoice from '../test/fixtures/messenger-voice.json' with { type: 'json' }
 import whatsappMixed from '../test/fixtures/whatsapp-mixed.json' with { type: 'json' }
+import { env } from '../env.ts'
 import { validSignature } from './meta.ts'
-import { parseMessenger, type MessengerPayload } from './messenger.ts'
+import { parseMessenger, sendMessenger, type MessengerPayload } from './messenger.ts'
 import { parseWhatsApp, type WhatsAppPayload } from './whatsapp.ts'
 import { canSendFreeform } from './window.ts'
 
@@ -75,5 +76,59 @@ describe('canSendFreeform', () => {
     expect(canSendFreeform(conv('whatsapp', 0), day - 11 * 60 * 1000)).toBe(true)
     expect(canSendFreeform(conv('messenger', 0), day)).toBe(false)
     expect(canSendFreeform(conv('webchat', 0), 10 * day)).toBe(true)
+  })
+})
+
+describe('instagram', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    env.MESSENGER_PAGE_TOKEN = undefined
+  })
+
+  it('parses dms like messenger, on the instagram channel', () => {
+    const [m] = parseMessenger(
+      {
+        object: 'instagram',
+        entry: [
+          {
+            id: 'IG_ID',
+            messaging: [
+              {
+                sender: { id: 'IGSID' },
+                recipient: { id: 'IG_ID' },
+                timestamp: 1,
+                message: { mid: 'm1', text: 'hi' },
+              },
+            ],
+          },
+        ],
+      },
+      (id) => (id === 'IG_ID' ? 'shop1' : null),
+      'instagram',
+    )
+    expect(m).toMatchObject({ channel: 'instagram', externalUserId: 'IGSID', text: 'hi' })
+  })
+
+  it('sends images as a public url instead of an upload', async () => {
+    env.MESSENGER_PAGE_TOKEN = 'page-token'
+    const calls: { url: string; body: string }[] = []
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      calls.push({ url, body: String(init.body) })
+      return Response.json({ message_id: 'x' })
+    })
+    const conv = { channel: 'instagram', externalUserId: 'IGSID' } as Parameters<
+      typeof sendMessenger
+    >[1]
+    await sendMessenger({} as Parameters<typeof sendMessenger>[0], conv, {
+      kind: 'image',
+      mediaId: 'med1',
+    })
+    expect(calls[0]!.url).toContain('/me/messages')
+    expect(JSON.parse(calls[0]!.body)).toMatchObject({
+      recipient: { id: 'IGSID' },
+      message: {
+        attachment: { type: 'image', payload: { url: expect.stringMatching(/\/media\/med1$/) } },
+      },
+    })
   })
 })

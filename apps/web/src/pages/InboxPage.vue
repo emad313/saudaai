@@ -26,11 +26,13 @@ onBeforeUnmount(() => clearInterval(timer))
 const channels = [
   { value: '', label: 'All chats' },
   { value: 'messenger', label: 'Messenger' },
+  { value: 'instagram', label: 'Instagram' },
   { value: 'whatsapp', label: 'WhatsApp' },
   { value: 'webchat', label: 'Web chat' },
 ]
 const badge: Record<string, string> = {
   messenger: 'bg-[#0866ff]',
+  instagram: 'bg-[#d62976]',
   whatsapp: 'bg-[#25d366]',
   webchat: 'bg-night',
 }

@@ -178,6 +178,39 @@ describe('meta webhook', () => {
     await new Promise((r) => setTimeout(r, 300))
     expect(f.seen).toHaveLength(1)
   })
+
+  it('takes instagram dms on the same webhook and answers on instagram', async () => {
+    f.push(say('Ji, bolun ki lagbe?'))
+    const ig = JSON.stringify({
+      object: 'instagram',
+      entry: [
+        {
+          id: 'IG_ID',
+          messaging: [
+            {
+              sender: { id: 'IGSID1' },
+              recipient: { id: 'IG_ID' },
+              timestamp: now,
+              message: { mid: 'ig.mid.1', text: 'price koto?' },
+            },
+          ],
+        },
+      ],
+    })
+    const res = await app.request('/webhooks/meta', {
+      method: 'POST',
+      headers: {
+        'x-hub-signature-256': `sha256=${createHmac('sha256', 'test-secret').update(ig).digest('hex')}`,
+      },
+      body: ig,
+    })
+    expect(res.status).toBe(200)
+    await new Promise((r) => setTimeout(r, 300))
+    expect(f.sent.at(-1)!.conversation).toMatchObject({
+      channel: 'instagram',
+      externalUserId: 'IGSID1',
+    })
+  })
 })
 
 describe('store api', () => {

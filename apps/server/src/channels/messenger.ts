@@ -19,7 +19,11 @@ type Event = {
     attachments?: Attachment[]
   }
 }
-export type MessengerPayload = { object: 'page'; entry: { id: string; messaging?: Event[] }[] }
+// Instagram DMs come through the Messenger Platform in the same shape, with object 'instagram'.
+export type MessengerPayload = {
+  object: 'page' | 'instagram'
+  entry: { id: string; messaging?: Event[] }[]
+}
 
 function token() {
   if (!env.MESSENGER_PAGE_TOKEN)
@@ -30,6 +34,7 @@ function token() {
 export function parseMessenger(
   body: MessengerPayload,
   shopFor: (pageId: string) => string | null,
+  channel: 'messenger' | 'instagram' = 'messenger',
 ): InboundMessage[] {
   const out: InboundMessage[] = []
   for (const entry of body.entry ?? []) {
@@ -39,7 +44,7 @@ export function parseMessenger(
       const m = e.message
       if (!m || m.is_echo) continue
       const base = {
-        channel: 'messenger' as const,
+        channel,
         shopId,
         externalUserId: e.sender.id,
         externalMessageId: m.mid,
@@ -75,6 +80,14 @@ export async function messengerProfileName(psid: string) {
   return p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || null : null
 }
 
+export async function instagramProfileName(igsid: string) {
+  if (!env.MESSENGER_PAGE_TOKEN) return null
+  const p = await graphGet(`${igsid}?fields=name,username`, env.MESSENGER_PAGE_TOKEN).catch(
+    () => null,
+  )
+  return p ? String(p.name ?? p.username ?? '') || null : null
+}
+
 export async function messengerTyping(psid: string) {
   await graph('me/messages', token(), { recipient: { id: psid }, sender_action: 'typing_on' })
 }
@@ -100,6 +113,20 @@ export async function sendMessenger(db: Db, c: Conversation, msg: OutboundMessag
           : {}),
       },
     })
+    return
+  }
+  // Instagram does not take Messenger-style uploads; it fetches the image from a public url.
+  if (c.channel === 'instagram') {
+    await graph('me/messages', token(), {
+      recipient,
+      message: {
+        attachment: {
+          type: 'image',
+          payload: { url: `${env.PUBLIC_BASE_URL}/media/${msg.mediaId}` },
+        },
+      },
+    })
+    if (msg.caption) await sendMessenger(db, c, { kind: 'text', text: msg.caption })
     return
   }
   const file = await loadMedia(db, msg.mediaId)

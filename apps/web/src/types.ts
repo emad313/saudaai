@@ -99,7 +99,7 @@ export type Activity = {
 
 export type ConversationRow = {
   id: string
-  channel: 'messenger' | 'whatsapp' | 'webchat'
+  channel: 'messenger' | 'whatsapp' | 'webchat' | 'instagram'
   name: string
   customerId: string | null
   pausedUntil: number | null

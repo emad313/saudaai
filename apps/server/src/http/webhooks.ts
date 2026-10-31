@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { webhookCallback } from 'grammy'
 import { Hono } from 'hono'
 import {
+  instagramProfileName,
   messengerProfileName,
   parseMessenger,
   type MessengerPayload,
@@ -40,6 +41,13 @@ export function metaInbound(raw: string, shopId: string): InboundMessage[] {
       pageId === env.MESSENGER_PAGE_ID ? shopId : null,
     )
   }
+  if (payload.object === 'instagram') {
+    return parseMessenger(
+      payload as MessengerPayload,
+      (accountId) => (accountId === env.INSTAGRAM_ACCOUNT_ID ? shopId : null),
+      'instagram',
+    )
+  }
   if (payload.object === 'whatsapp_business_account') {
     return parseWhatsApp(payload as WhatsAppPayload, (id) =>
       id === env.WHATSAPP_PHONE_NUMBER_ID ? shopId : null,
@@ -54,9 +62,11 @@ export function webhookRoutes(services: Pick<Services, 'db' | 'inbox' | 'telegra
   const names = new Map<string, string | null>()
 
   async function withName(m: InboundMessage, inbox: Inbox) {
-    if (m.channel === 'messenger' && !m.profileName) {
-      if (!names.has(m.externalUserId))
-        names.set(m.externalUserId, await messengerProfileName(m.externalUserId))
+    if ((m.channel === 'messenger' || m.channel === 'instagram') && !m.profileName) {
+      if (!names.has(m.externalUserId)) {
+        const lookup = m.channel === 'instagram' ? instagramProfileName : messengerProfileName
+        names.set(m.externalUserId, await lookup(m.externalUserId))
+      }
       m.profileName = names.get(m.externalUserId) ?? undefined
     }
     await inbox.customer(m)

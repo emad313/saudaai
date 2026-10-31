@@ -12,6 +12,7 @@ export default defineConfig({
       META_VERIFY_TOKEN: 'verify-me',
       MESSENGER_PAGE_ID: 'PAGE_ID',
       WHATSAPP_PHONE_NUMBER_ID: 'PHONE_ID',
+      INSTAGRAM_ACCOUNT_ID: 'IG_ID',
       STORE_SECRET_KEY: Buffer.alloc(32, 1).toString('base64'),
     },
   },

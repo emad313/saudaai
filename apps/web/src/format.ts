@@ -25,6 +25,7 @@ export const channelName: Record<string, string> = {
   messenger: 'Messenger',
   whatsapp: 'WhatsApp',
   webchat: 'Web chat',
+  instagram: 'Instagram',
 }
 
 export const methodName: Record<string, string> = {
