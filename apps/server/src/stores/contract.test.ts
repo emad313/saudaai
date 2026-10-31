@@ -458,3 +458,62 @@ describe('woocommerce specifics', () => {
     ).toBe(false)
   })
 })
+
+describe('custom store writes', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function connectDemo() {
+    const t = await testShop()
+    const store = createStoreApp(await openDb(':memory:'), { token: 'store-token-1' })
+    vi.stubGlobal('fetch', (async (input: string | URL | Request, init?: RequestInit) =>
+      store.fetch(new Request(String(input), init))) as typeof fetch)
+    const { connector } = await connectStore(
+      t.db,
+      t.shop,
+      {
+        kind: 'custom',
+        baseUrl: 'https://demo-store.test',
+        credentials: { token: 'store-token-1' },
+      },
+      Date.now(),
+    )
+    return connector!
+  }
+
+  it('creates and publishes a product with its photo on the demo store', async () => {
+    const connector = await connectDemo()
+    const made = await connector.createProduct!({
+      name: 'Olive Cotton Panjabi',
+      category: 'panjabi',
+      imageUrl: 'https://saudaai.example/media/abc',
+      status: 'draft',
+      variants: [
+        { externalId: '', size: 'M', pricePoisha: 180000, stock: 4 },
+        { externalId: '', size: 'L', pricePoisha: 180000, stock: 4 },
+      ],
+    })
+    expect(made).toMatchObject({ status: 'draft', imageUrl: 'https://saudaai.example/media/abc' })
+    expect(made.variants.map((v) => v.size)).toEqual(['M', 'L'])
+    await connector.publishProduct!(made.externalId)
+    expect((await connector.getProduct(made.externalId))!.status).toBe('active')
+  })
+
+  it('changes stock on the demo store and refuses untracked items', async () => {
+    const connector = await connectDemo()
+    expect(await connector.adjustStock!('maroon-kurti-m', 3)).toBe(7)
+    expect(await connector.adjustStock!('maroon-kurti-m', -10)).toBe(0)
+    await expect(connector.adjustStock!('nope', 1)).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('reports a site without the optional routes as not supported', async () => {
+    const t = await testShop()
+    vi.stubGlobal('fetch', fakeStore(demoProducts()).fetch)
+    const { connector } = await connectStore(
+      t.db,
+      t.shop,
+      { kind: 'custom', baseUrl: storeUrl, credentials: { token: 'tok-12345678' } },
+      Date.now(),
+    )
+    await expect(connector!.adjustStock!('v1', 1)).rejects.toMatchObject({ status: 404 })
+  })
+})

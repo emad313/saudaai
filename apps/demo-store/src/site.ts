@@ -12,6 +12,9 @@ const inStock = (p: Product) => p.variants.some((v) => v.stock === null || v.sto
 
 // Drawn swatches instead of photos: the repo ships no product images it does not own.
 function swatch(p: Product, size: number) {
+  if (p.imageUrl) {
+    return `<img src="${esc(p.imageUrl)}" alt="${esc(p.name)}" width="${size}" height="${size}" style="object-fit:cover;aspect-ratio:1;width:100%;height:auto;display:block">`
+  }
   const light = /^#(e|f|d)/i.test(p.color)
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${esc(p.name)}">
     <rect width="100" height="100" fill="${p.color}"/>

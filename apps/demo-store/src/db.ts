@@ -20,6 +20,7 @@ export type Product = {
   category: string
   description: string
   color: string
+  imageUrl: string | null
   status: 'active' | 'draft' | 'archived'
   variants: Variant[]
 }
@@ -202,6 +203,10 @@ export async function openDb(url: string) {
   if (url.startsWith('file:')) mkdirSync(dirname(url.slice('file:'.length)), { recursive: true })
   const db = createClient({ url })
   for (const sql of schema) await db.execute(sql)
+  const { rows: cols } = await db.execute('pragma table_info(products)')
+  if (!cols.some((c) => c.name === 'image_url')) {
+    await db.execute('alter table products add column image_url text')
+  }
   const { rows } = await db.execute('select count(*) as n from products')
   if (Number(rows[0]!.n) === 0) await seed(db)
   return db
@@ -210,7 +215,7 @@ export async function openDb(url: string) {
 async function seed(db: Db) {
   const stmts = catalog.flatMap((p, position) => [
     {
-      sql: 'insert into products values (?, ?, ?, ?, ?, ?, ?)',
+      sql: 'insert into products (id, name, category, description, color, status, position) values (?, ?, ?, ?, ?, ?, ?)',
       args: [p.id, p.name, p.category, p.description, p.color, 'active', position],
     },
     ...(p.sizes ?? []).map(([size, stock]) => ({
@@ -258,6 +263,7 @@ export async function loadProducts(db: Db, where = '1 = 1', args: (string | numb
     category: String(r.category),
     description: String(r.description),
     color: String(r.color),
+    imageUrl: r.image_url ? String(r.image_url) : null,
     status: String(r.status) as Product['status'],
     variants: variants.rows
       .filter((v) => v.product_id === r.id)

@@ -147,6 +147,14 @@ type StoreOrder = {
 }
 ```
 
+Optional routes, so the owner can add products and change stock from SaudaAI (answer 404 if your site does not offer them; the owner is then told to use the store admin):
+
+| Method | Path                    | Body                                                                         | Response                  |
+| ------ | ----------------------- | ---------------------------------------------------------------------------- | ------------------------- |
+| POST   | `/saudaai/products`     | product without ids, `status: "draft"`, `imageUrl` (SaudaAI's cleaned photo) | the new `ExternalProduct` |
+| PATCH  | `/saudaai/products/:id` | `{ status: "active" \| "draft" \| "archived" }`                              | `{ ok: true }`            |
+| POST   | `/saudaai/stock`        | `{ variantExternalId, delta }`                                               | `{ stock }`               |
+
 Order `status` changes are `confirmed`, `shipped`, `delivered` or `cancelled`. Price the order from your own catalog and refuse it (any 4xx) if stock is short.
 
 Webhooks back to SaudaAI: `POST {SaudaAI}/webhooks/store/{shopId}` with a JSON array of events and `X-SaudaAI-Signature: sha256=<hex HMAC-SHA256 of the raw body with the shared secret>`:

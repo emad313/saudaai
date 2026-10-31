@@ -60,6 +60,28 @@ export function customConnector(row: StoreRow, creds: Credentials, secret: strin
       const res = await call('PATCH', `/orders/${encodeURIComponent(externalId)}`, change)
       if (!res.ok) throw await failure(res)
     },
+    // Optional routes: a site that does not offer them answers 404 and the owner is told to use the store admin.
+    async createProduct(p) {
+      const res = await call('POST', '/products', {
+        ...p,
+        variants: p.variants.map(({ externalId: _, ...v }) => v),
+      })
+      if (res.status === 404 || res.status === 405)
+        throw new StoreError('the site does not take new products from SaudaAI', 404)
+      return json(res, externalProduct)
+    },
+    async publishProduct(externalId) {
+      const res = await call('PATCH', `/products/${encodeURIComponent(externalId)}`, {
+        status: 'active',
+      })
+      if (!res.ok) throw await failure(res)
+    },
+    async adjustStock(variantExternalId, delta) {
+      const res = await call('POST', '/stock', { variantExternalId, delta })
+      if (res.status === 404 || res.status === 405)
+        throw new StoreError('the site does not take stock changes from SaudaAI', 404)
+      return (await json(res, z.object({ stock: z.number().int() }))).stock
+    },
     async getOrder(externalId) {
       const res = await call('GET', `/orders/${encodeURIComponent(externalId)}`)
       if (res.status === 404) return null

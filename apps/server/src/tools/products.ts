@@ -7,6 +7,7 @@ import { hasImage } from '../catalog/image.ts'
 import { env } from '../env.ts'
 import { catalogScope, storeFor } from '../stores/index.ts'
 import { applyProduct } from '../stores/sync.ts'
+import { StoreError } from '../stores/types.ts'
 import { ToolError, type Ctx } from './ctx.ts'
 import { normalize, tokens } from './text.ts'
 
@@ -49,6 +50,21 @@ function score(query: string[], p: Product, vs: Variant[]): number {
     else if (q.length >= 3 && haystack.includes(q)) hits += 0.6
   }
   return query.length ? hits / query.length : 0
+}
+
+// A store that refuses (or lacks the route) means the owner has to do it in the store admin.
+async function inStore<T>(what: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (!(err instanceof StoreError)) throw err
+    throw new ToolError(
+      err.status === 404 ? 'in_store' : 'store_failed',
+      err.status === 404
+        ? `the store cannot ${what} from here, do it in the store admin`
+        : `the store refused to ${what}: ${err.message}`,
+    )
+  }
 }
 
 export async function loadVariants(ctx: Ctx, productIds: string[]) {
@@ -133,19 +149,21 @@ export async function createProductDraft(
       )
     }
     const rows = args.variants.length ? args.variants : [{ stock: 0 }]
-    const made = await store.connector.createProduct({
-      name: args.name,
-      category: args.category,
-      status: 'draft',
-      imageUrl: args.mediaId ? `${env.PUBLIC_BASE_URL}/media/${args.mediaId}` : undefined,
-      variants: rows.map((v) => ({
-        externalId: '',
-        size: v.size,
-        color: v.color,
-        pricePoisha: v.pricePoisha ?? args.pricePoisha,
-        stock: v.stock,
-      })),
-    })
+    const made = await inStore(`add ${args.name}`, () =>
+      store.connector!.createProduct!({
+        name: args.name,
+        category: args.category,
+        status: 'draft',
+        imageUrl: args.mediaId ? `${env.PUBLIC_BASE_URL}/media/${args.mediaId}` : undefined,
+        variants: rows.map((v) => ({
+          externalId: '',
+          size: v.size,
+          color: v.color,
+          pricePoisha: v.pricePoisha ?? args.pricePoisha,
+          stock: v.stock,
+        })),
+      }),
+    )
     const productId = await applyProduct(ctx.db, store.row!, made, ctx.now)
     await ctx.db
       .update(products)
@@ -247,7 +265,9 @@ export async function adjustStock(
         `stock for ${p.name} is managed in your store, change it there`,
       )
     }
-    const stock = await store.connector.adjustStock(before.externalId, args.delta)
+    const stock = await inStore(`change stock for ${p.name}`, () =>
+      store.connector!.adjustStock!(before.externalId!, args.delta),
+    )
     await ctx.db.update(variants).set({ stock }).where(eq(variants.id, before.id))
     const { v } = await requireVariant(ctx, args.variantId)
     return { product: p.name, ...variantView(v), stock: v.stock, reason: args.reason }

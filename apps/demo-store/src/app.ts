@@ -29,6 +29,26 @@ const orderInput = z.object({
   tags: z.array(z.string()),
 })
 
+const productInput = z.object({
+  name: z.string().min(1).max(120),
+  category: z.string().max(40).optional(),
+  description: z.string().max(1000).optional(),
+  imageUrl: z.url().optional(),
+  status: z.enum(['active', 'draft']).default('draft'),
+  variants: z
+    .array(
+      z.object({
+        size: z.string().max(20).optional(),
+        color: z.string().max(20).optional(),
+        sku: z.string().max(40).optional(),
+        pricePoisha: z.number().int().positive(),
+        stock: z.number().int().min(0).nullable(),
+      }),
+    )
+    .min(1)
+    .max(30),
+})
+
 const orderChange = z.object({
   status: z.enum(['confirmed', 'shipped', 'delivered', 'cancelled']).optional(),
   paidPoisha: z.number().int().min(0).optional(),
@@ -41,6 +61,7 @@ function external(p: Product) {
     name: p.name,
     category: p.category,
     description: p.description,
+    ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
     status: p.status,
     variants: p.variants.map((v) => ({
       externalId: v.id,
@@ -182,6 +203,81 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
   api.get('/products/:id', async (c) => {
     const [p] = await loadProducts(db, 'id = ?', [c.req.param('id')])
     return p ? c.json(external(p)) : c.json({ error: 'not found' }, 404)
+  })
+
+  api.post('/products', async (c) => {
+    const input = productInput.safeParse(await c.req.json())
+    if (!input.success) return c.json({ error: input.error.issues[0]?.message }, 400)
+    const p = input.data
+    const slug = p.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const id = `${slug}-${randomUUID().slice(0, 6)}`
+    const { rows } = await db.execute('select coalesce(max(position), -1) + 1 as n from products')
+    await db.batch(
+      [
+        {
+          sql: 'insert into products (id, name, category, description, color, status, position, image_url) values (?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [
+            id,
+            p.name,
+            p.category ?? 'other',
+            p.description ?? '',
+            '#cbd5e1',
+            p.status,
+            Number(rows[0]!.n),
+            p.imageUrl ?? null,
+          ],
+        },
+        ...p.variants.map((v, i) => ({
+          sql: 'insert into variants values (?, ?, ?, ?, ?, ?, ?)',
+          args: [
+            `${id}-${i + 1}`,
+            id,
+            v.size ?? null,
+            v.color ?? null,
+            v.sku ?? null,
+            v.pricePoisha,
+            v.stock,
+          ],
+        })),
+      ],
+      'write',
+    )
+    const [made] = await loadProducts(db, 'id = ?', [id])
+    return c.json(external(made!), 201)
+  })
+
+  api.patch('/products/:id', async (c) => {
+    const body = z
+      .object({ status: z.enum(['active', 'draft', 'archived']) })
+      .safeParse(await c.req.json())
+    if (!body.success) return c.json({ error: 'status must be active, draft or archived' }, 400)
+    const res = await db.execute({
+      sql: 'update products set status = ? where id = ?',
+      args: [body.data.status, c.req.param('id')],
+    })
+    return res.rowsAffected ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404)
+  })
+
+  api.post('/stock', async (c) => {
+    const body = z
+      .object({ variantExternalId: z.string(), delta: z.number().int() })
+      .safeParse(await c.req.json())
+    if (!body.success) return c.json({ error: 'variantExternalId and delta are required' }, 400)
+    const { rows } = await db.execute({
+      sql: 'select stock from variants where id = ?',
+      args: [body.data.variantExternalId],
+    })
+    if (!rows[0]) return c.json({ error: 'not found' }, 404)
+    if (rows[0].stock === null) return c.json({ error: 'stock is not tracked for this item' }, 409)
+    const stock = Math.max(0, Number(rows[0].stock) + body.data.delta)
+    await db.execute({
+      sql: 'update variants set stock = ? where id = ?',
+      args: [stock, body.data.variantExternalId],
+    })
+    return c.json({ stock })
   })
 
   api.post('/orders', async (c) => {
