@@ -154,6 +154,7 @@ Optional routes, so the owner can add products and change stock from SaudaAI (an
 | POST   | `/saudaai/products`     | product without ids, `status: "draft"`, `imageUrl` (SaudaAI's cleaned photo) | the new `ExternalProduct` |
 | PATCH  | `/saudaai/products/:id` | `{ status: "active" \| "draft" \| "archived" }`                              | `{ ok: true }`            |
 | POST   | `/saudaai/stock`        | `{ variantExternalId, delta }`                                               | `{ stock }`               |
+| POST   | `/saudaai/posts`        | `{ title, body, imageUrl }` (a banner made by SaudaAI)                       | `{ url }` of the post     |
 
 Order `status` changes are `confirmed`, `shipped`, `delivered` or `cancelled`. Price the order from your own catalog and refuse it (any 4xx) if stock is short.
 
