@@ -63,7 +63,12 @@ async function save() {
 }
 
 onMounted(fill)
-const shopLink = () => `${location.origin}/s/${session.me?.slug}`
+const copied = ref(false)
+async function copySnippet() {
+  await navigator.clipboard.writeText(session.me?.widgetSnippet ?? '')
+  copied.value = true
+  setTimeout(() => (copied.value = false), 2000)
+}
 const methods = { cod: 'Cash on delivery', bkash: 'bKash', nagad: 'Nagad' }
 const switches = [
   { key: 'autoConfirm', label: 'Confirm customer orders up to an amount' },
@@ -188,16 +193,19 @@ const switches = [
         </div>
       </section>
       <section class="panel">
-        <h2 class="card-head">Shop chat link</h2>
+        <h2 class="card-head">
+          Website chat
+          <button type="button" class="btn-ghost min-h-8 px-2 text-sm" @click="copySnippet">
+            {{ copied ? 'Copied' : 'Copy' }}
+          </button>
+        </h2>
         <div class="px-5 pb-5">
-          <a
-            :href="shopLink()"
-            class="mt-1.5 block text-sm font-medium break-all text-ink hover:underline"
-            target="_blank"
-            >{{ shopLink() }}</a
-          >
+          <pre
+            class="mt-3 overflow-x-auto rounded-lg bg-night p-3 text-xs leading-relaxed whitespace-pre-wrap text-white/90"
+            >{{ session.me?.widgetSnippet }}</pre>
           <p class="mt-2 text-sm text-muted">
-            Put this in your Page bio. Customers can chat, send voice notes and order here.
+            Paste this before &lt;/body&gt; on your website (Shopify: theme.liquid, WooCommerce: a
+            footer code plugin). Customers can then chat, send voice notes and order from any page.
           </p>
         </div>
       </section>

@@ -1,8 +1,7 @@
 import { createHmac } from 'node:crypto'
-import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegram } from '../channels/telegram.ts'
-import { loginCodes, orders, pendingActions } from '../db/schema.ts'
+import { loginCodes } from '../db/schema.ts'
 import { createInbox } from '../inbox.ts'
 import { fakeDeps, say } from '../test/deps.ts'
 import { now, testShop } from '../test/shop.ts'
@@ -70,44 +69,65 @@ describe('seller api', () => {
   })
 })
 
-describe('public shop', () => {
-  it('shows the catalog without login', async () => {
-    const res = await app.request('/api/s/nusrats-closet')
-    const shop = await res.json()
-    expect(shop.products).toHaveLength(12)
-    expect(res.headers.get('set-cookie')).toContain('wsid=')
+describe('website widget', () => {
+  const key = () => t.shop.publicKey!
+  const sid = 'abcdefghijklmnopqrstuvwx'
+
+  it('answers the cors preflight from any site', async () => {
+    const res = await app.request(`/api/w/${key()}/messages`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://some-shop.example',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type,x-saudaai-session',
+      },
+    })
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+    expect(res.headers.get('access-control-allow-headers')).toContain('x-saudaai-session')
   })
 
-  it('takes an order from the form and sends it for approval', async () => {
-    const { matches } = await findProducts(t.ctx(), { query: 'tote bag' })
-    const res = await app.request('/api/s/nusrats-closet/order', {
+  it('issues a session and refuses messages without one', async () => {
+    expect((await app.request('/api/w/not-a-key')).status).toBe(404)
+    const info = await (await app.request(`/api/w/${key()}`)).json()
+    expect(info).toMatchObject({ name: "Nusrat's Closet" })
+    expect(info.session).toMatch(/^[a-z0-9]{24}$/)
+    const res = await app.request(`/api/w/${key()}/messages`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'hi' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('tells the agent which product page the customer is on and keeps chats apart', async () => {
+    f = fakeDeps(t.db, [say('Ji, M size ache.')])
+    const inbox = createInbox(f.deps)
+    app = createApp({ db: t.db, deps: f.deps, inbox, telegram: createTelegram(t.db) })
+    const { matches } = await findProducts(t.ctx(), { query: 'maroon kurti' })
+    const res = await app.request(`/api/w/${key()}/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-saudaai-session': sid },
       body: JSON.stringify({
-        items: [{ variantId: matches[0]!.variants[0]!.variantId, qty: 1 }],
-        name: 'Web Buyer',
-        phone: '01712345678',
-        address: 'Road 5, Dhanmondi',
-        area: 'Dhanmondi',
-        paymentMethod: 'cod',
+        text: 'eta M size ache?',
+        pageUrl: 'https://nusrats-closet.example/p/maroon-kurti',
+        productId: matches[0]!.productId,
       }),
     })
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body).toMatchObject({ total: '৳710', status: 'waiting for shop confirmation' })
-    const pending = await t.db.select().from(pendingActions)
-    expect(pending.map((p) => p.tool)).toEqual(['send_order_confirmation'])
+    expect(res.status).toBe(202)
+    await inbox.idle()
+    const system = String(f.seen[0]!.messages[0]!.content)
+    expect(system).toContain(`looking at this product page: ${matches[0]!.productId}`)
 
-    const cookie = await signIn()
-    const approved = await app.request(`/api/pending/${pending[0]!.id}`, {
-      method: 'POST',
-      headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ action: 'approve' }),
-    })
-    expect((await approved.json()).ok).toBe(true)
-    const [o] = await t.db.select().from(orders).where(eq(orders.number, body.number))
-    expect(o!.status).toBe('confirmed')
-    expect(f.sent.map((s) => s.msg.kind)).toEqual(['text', 'image'])
+    const mine = await (
+      await app.request(`/api/w/${key()}/messages`, { headers: { 'x-saudaai-session': sid } })
+    ).json()
+    expect(mine.messages.map((m: { role: string }) => m.role)).toEqual(['customer', 'agent'])
+    const other = await (
+      await app.request(`/api/w/${key()}/messages`, {
+        headers: { 'x-saudaai-session': 'zyxwvutsrqponmlkjihgfedc' },
+      })
+    ).json()
+    expect(other.messages).toEqual([])
   })
 })
 

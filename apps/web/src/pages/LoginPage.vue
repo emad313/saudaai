@@ -10,6 +10,7 @@ const busy = ref(false)
 const route = useRoute()
 const router = useRouter()
 const session = useSession()
+const demoSite = import.meta.env.VITE_DEMO_SITE_URL as string | undefined
 
 async function submit() {
   busy.value = true
@@ -63,12 +64,12 @@ async function submit() {
         >
           Log in
         </button>
-        <p class="mt-10 text-sm text-muted">
+        <p v-if="demoSite" class="mt-10 text-sm text-muted">
           Just looking?
-          <RouterLink to="/s/nusrats-closet" class="font-medium text-ink hover:underline"
-            >Chat with the demo shop</RouterLink
+          <a :href="demoSite" class="font-medium text-ink hover:underline"
+            >Shop on the demo store</a
           >
-          as a customer.
+          and chat with it as a customer.
         </p>
       </form>
     </section>

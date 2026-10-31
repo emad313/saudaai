@@ -12,7 +12,7 @@ import { ToolError } from '../tools/ctx.ts'
 import { body } from './body.ts'
 import { sellerRoutes } from './seller.ts'
 import { login, logout, requireShop, type SellerEnv } from './session.ts'
-import { shopRoutes } from './shop.ts'
+import { widgetRoutes } from './widget.ts'
 import { webhookRoutes } from './webhooks.ts'
 
 export function createApp(services?: Services) {
@@ -34,7 +34,7 @@ export function createApp(services?: Services) {
       return c.json({ ok: true })
     })
 
-    app.route('/api/s', shopRoutes(deps, inbox))
+    app.route('/api/w', widgetRoutes(deps, inbox))
     const seller = new Hono<SellerEnv>()
     seller.use('*', requireShop(db))
     seller.route('/', sellerRoutes(deps))
@@ -46,6 +46,17 @@ export function createApp(services?: Services) {
       return c.body(new Uint8Array(file.bytes), 200, {
         'content-type': file.row.mime,
         'cache-control': 'private, max-age=31536000, immutable',
+      })
+    })
+
+    // Built by `vite build -c vite.widget.config.ts` (the web dev script keeps it fresh).
+    app.get('/widget.js', async (c) => {
+      const js = await readFile(resolve(env.WEB_DIST, 'widget.js'), 'utf8').catch(() => null)
+      if (js === null) return c.text('widget not built, run pnpm --filter web build', 404)
+      return c.body(js, 200, {
+        'content-type': 'text/javascript; charset=utf-8',
+        'access-control-allow-origin': '*',
+        'cache-control': 'public, max-age=300',
       })
     })
 

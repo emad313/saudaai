@@ -11,6 +11,7 @@ export type InboundMessage = {
   text?: string
   media?: { mime: string; fetch: () => Promise<Buffer> }
   profileName?: string
+  meta?: { pageUrl?: string; productId?: string }
   receivedAt: number
 }
 

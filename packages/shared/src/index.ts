@@ -1,8 +1,6 @@
 export { formatTaka, parseTaka, sumPoisha } from './money.ts'
 export {
   authCode,
-  chatMessage,
-  orderForm,
   orderPatch,
   paymentInput,
   pendingDecision,
@@ -11,6 +9,6 @@ export {
   shopPatch,
   storeConnect,
   variantAdjust,
-  type OrderForm,
+  widgetMessage,
   type ShopPatch,
 } from './schemas.ts'

@@ -1,3 +1,4 @@
+import { env } from '../env.ts'
 import type { OutboundMessage } from './types.ts'
 
 export type WebEvent = {
@@ -39,7 +40,7 @@ export function sendWebchat(
       ? {
           role,
           kind: 'image',
-          imageUrl: `/media/${msg.mediaId}`,
+          imageUrl: `${env.PUBLIC_BASE_URL}/media/${msg.mediaId}`,
           text: msg.caption,
           at: Date.now(),
         }

@@ -51,12 +51,17 @@ export function createInbox(
         channel: m.channel,
         externalUserId: m.externalUserId,
         profileName: m.profileName ?? null,
+        meta: m.meta ?? null,
         lastInboundAt: now,
         createdAt: now,
       })
       .onConflictDoUpdate({
         target: [conversations.shopId, conversations.channel, conversations.externalUserId],
-        set: { lastInboundAt: now, ...(m.profileName ? { profileName: m.profileName } : {}) },
+        set: {
+          lastInboundAt: now,
+          ...(m.profileName ? { profileName: m.profileName } : {}),
+          ...(m.meta ? { meta: m.meta } : {}),
+        },
       })
     const [c] = await deps.db
       .select()

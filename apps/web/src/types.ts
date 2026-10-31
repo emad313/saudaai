@@ -16,6 +16,7 @@ export type Me = {
   telegramLinked: boolean
   linkCode: string | null
   readonly: boolean
+  widgetSnippet: string
 }
 
 export type OrderRow = {

@@ -5,7 +5,6 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: () => import('./pages/LoginPage.vue'), meta: { public: true } },
-    { path: '/s/:slug', component: () => import('./pages/ShopPage.vue'), meta: { public: true } },
     {
       path: '/',
       component: () => import('./components/AppShell.vue'),

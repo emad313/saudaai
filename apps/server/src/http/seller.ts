@@ -83,6 +83,7 @@ export function sellerRoutes(deps: Deps) {
       telegramLinked: Boolean(shop.telegramChatId),
       linkCode: c.get('readonly') ? null : shop.linkCode,
       readonly: c.get('readonly'),
+      widgetSnippet: `<script src="${env.PUBLIC_BASE_URL}/widget.js" data-shop="${shop.publicKey}" defer></script>`,
     })
   })
 

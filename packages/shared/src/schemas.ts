@@ -49,21 +49,12 @@ export const shopPatch = z.object({
 
 export const chatMessage = z.object({ text: z.string().min(1).max(1000) })
 
-export const orderForm = z.object({
-  items: z
-    .array(z.object({ variantId: z.string().min(1), qty: z.number().int().min(1).max(20) }))
-    .min(1)
-    .max(10),
-  name: z.string().min(1).max(80),
-  phone: z.string().min(8).max(20),
-  address: z.string().min(3).max(300),
-  area: z.string().min(2).max(80),
-  paymentMethod: z.string().min(1),
-  note: z.string().max(300).optional(),
+export const widgetMessage = chatMessage.extend({
+  pageUrl: z.url().max(500).optional(),
+  productId: z.string().max(100).optional(),
 })
 
 export type ShopPatch = z.infer<typeof shopPatch>
-export type OrderForm = z.infer<typeof orderForm>
 
 export const storeConnect = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('builtin') }),

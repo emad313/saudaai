@@ -1,25 +1,20 @@
-import { chatMessage, orderForm } from '@saudaai/shared'
+import { widgetMessage } from '@saudaai/shared'
 import { and, eq } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
-import { getCookie, setCookie } from 'hono/cookie'
+import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { streamSSE } from 'hono/streaming'
 import type { Deps } from '../agent/deps.ts'
-import { orderReceivedReply } from '../agent/copy.ts'
-import { logMessage } from '../agent/messaging.ts'
-import { toolByName, type TurnCtx } from '../agent/registry.ts'
 import { subscribe, type WebEvent } from '../channels/webchat.ts'
 import { newId } from '../db/ids.ts'
-import { conversations, messages, products, shops } from '../db/schema.ts'
+import { conversations, messages, shops } from '../db/schema.ts'
 import { env } from '../env.ts'
 import type { Inbox } from '../inbox.ts'
-import { catalogScope } from '../stores/index.ts'
-import { available, loadVariants } from '../tools/products.ts'
 import { body } from './body.ts'
 
-const cookie = 'wsid'
 const tenMinutes = 10 * 60 * 1000
 const hour = 60 * 60 * 1000
+const sessionPattern = /^[a-z0-9]{24}$/
 
 function limiter(max: number, windowMs: number) {
   const hits = new Map<string, number[]>()
@@ -31,33 +26,37 @@ function limiter(max: number, windowMs: number) {
   }
 }
 
-export function shopRoutes(deps: Deps, inbox: Inbox) {
+// The widget runs on the seller's own site, where our cookies would be third-party and blocked,
+// so the browser keeps a session id in localStorage and sends it as a header (or ?session= for SSE).
+export function widgetRoutes(deps: Deps, inbox: Inbox) {
   const app = new Hono()
   const { db } = deps
   const perSession = limiter(20, tenMinutes)
   const perShop = limiter(200, hour)
 
+  app.use(
+    '*',
+    cors({
+      origin: '*',
+      allowHeaders: ['content-type', 'x-saudaai-session'],
+      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      maxAge: 86400,
+    }),
+  )
+
   async function shopOf(c: Context) {
     const [shop] = await db
       .select()
       .from(shops)
-      .where(eq(shops.slug, c.req.param('slug')!))
+      .where(eq(shops.publicKey, c.req.param('key')!))
     if (!shop) throw new HTTPException(404, { message: 'shop not found' })
     return shop
   }
 
   function session(c: Context) {
-    const existing = getCookie(c, cookie)
-    if (existing && /^[a-z0-9]{24}$/.test(existing)) return existing
-    const id = `${newId()}${newId()}`
-    setCookie(c, cookie, id, {
-      httpOnly: true,
-      sameSite: 'Lax',
-      secure: env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 90 * 24 * 60 * 60,
-    })
-    return id
+    const sid = c.req.header('x-saudaai-session') ?? c.req.query('session') ?? ''
+    if (!sessionPattern.test(sid)) throw new HTTPException(400, { message: 'missing session' })
+    return sid
   }
 
   async function conversationFor(shopId: string, sid: string) {
@@ -74,49 +73,17 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
     return conv ?? null
   }
 
-  app.get('/:slug', async (c) => {
+  app.get('/:key', async (c) => {
     const shop = await shopOf(c)
-    session(c)
-    const rows = await db
-      .select()
-      .from(products)
-      .where(
-        and(
-          eq(products.shopId, shop.id),
-          eq(products.status, 'active'),
-          await catalogScope(db, shop.id),
-        ),
-      )
-    const byProduct = await loadVariants(
-      { db, shop, actor: 'customer', now: deps.now() },
-      rows.map((p) => p.id),
-    )
+    const given = c.req.header('x-saudaai-session') ?? ''
     return c.json({
       name: shop.name,
       area: shop.area,
-      paymentMethods: shop.paymentMethods,
-      delivery: {
-        insideDhakaPoisha: shop.deliveryRules.insideDhakaPoisha,
-        outsideDhakaPoisha: shop.deliveryRules.outsideDhakaPoisha,
-      },
-      products: rows.map((p) => ({
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        pricePoisha: p.basePricePoisha,
-        imageUrl: p.imageId ? `/media/${p.imageId}` : null,
-        variants: (byProduct.get(p.id) ?? []).map((v) => ({
-          id: v.id,
-          size: v.size,
-          color: v.color,
-          pricePoisha: v.pricePoisha,
-          available: available(v),
-        })),
-      })),
+      session: sessionPattern.test(given) ? given : `${newId()}${newId()}`,
     })
   })
 
-  app.get('/:slug/messages', async (c) => {
+  app.get('/:key/messages', async (c) => {
     const shop = await shopOf(c)
     const conv = await conversationFor(shop.id, session(c))
     if (!conv) return c.json({ messages: [] })
@@ -132,13 +99,14 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
         role: m.role,
         kind: m.kind,
         text: m.role === 'customer' && m.kind === 'voice' ? m.transcript : m.text,
-        imageUrl: m.mediaId && m.kind !== 'voice' ? `/media/${m.mediaId}` : null,
+        imageUrl:
+          m.mediaId && m.kind !== 'voice' ? `${env.PUBLIC_BASE_URL}/media/${m.mediaId}` : null,
         at: m.createdAt,
       })),
     })
   })
 
-  app.post('/:slug/messages', async (c) => {
+  app.post('/:key/messages', async (c) => {
     const shop = await shopOf(c)
     const sid = session(c)
     const now = deps.now()
@@ -159,19 +127,22 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
         throw new HTTPException(400, { message: 'voice note missing or too large' })
       }
       const bytes = Buffer.from(await voice.arrayBuffer())
+      const productId = form.get('productId')
       await inbox.customer({
         ...base,
         kind: 'voice',
         media: { mime: voice.type || 'audio/webm', fetch: async () => bytes },
+        ...(typeof productId === 'string' && productId ? { meta: { productId } } : {}),
       })
     } else {
-      const { text } = await body(c, chatMessage)
-      await inbox.customer({ ...base, kind: 'text', text })
+      const { text, pageUrl, productId } = await body(c, widgetMessage)
+      const meta = pageUrl || productId ? { pageUrl, productId } : undefined
+      await inbox.customer({ ...base, kind: 'text', text, ...(meta ? { meta } : {}) })
     }
     return c.json({ ok: true }, 202)
   })
 
-  app.get('/:slug/stream', async (c) => {
+  app.get('/:key/stream', async (c) => {
     await shopOf(c)
     const sid = session(c)
     return streamSSE(c, async (stream) => {
@@ -192,50 +163,6 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
         if (!queue.length) await stream.writeSSE({ event: 'ping', data: '' })
       }
     })
-  })
-
-  app.post('/:slug/order', async (c) => {
-    const shop = await shopOf(c)
-    const sid = session(c)
-    const form = await body(c, orderForm)
-    const now = deps.now()
-    await db
-      .insert(conversations)
-      .values({
-        id: newId(),
-        shopId: shop.id,
-        channel: 'webchat',
-        externalUserId: sid,
-        lastInboundAt: now,
-        createdAt: now,
-      })
-      .onConflictDoUpdate({
-        target: [conversations.shopId, conversations.channel, conversations.externalUserId],
-        set: { lastInboundAt: now },
-      })
-    const conversation = (await conversationFor(shop.id, sid))!
-    const ctx: TurnCtx = {
-      db,
-      deps,
-      shop,
-      actor: 'customer',
-      now,
-      conversation,
-      conversationId: conversation.id,
-      customerId: conversation.customerId,
-      turnId: `form_${newId()}`,
-      inputKind: 'text',
-    }
-    const result = (await toolByName.get('place_order')!.run(ctx, form as never)) as {
-      number: number
-      total: string
-      status: string
-    }
-    await logMessage(deps, conversation.id, 'agent', {
-      kind: 'text',
-      text: orderReceivedReply(result.number),
-    })
-    return c.json(result)
   })
 
   return app

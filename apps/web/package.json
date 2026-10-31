@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -p . && vite build",
+    "dev": "vite build -c vite.widget.config.ts --watch --logLevel warn & vite",
+    "build": "vue-tsc -p . && vite build && vite build -c vite.widget.config.ts",
     "preview": "vite preview",
     "typecheck": "vue-tsc -p ."
   },

@@ -1,6 +1,6 @@
 import { formatTaka } from '@saudaai/shared'
-import { and, desc, eq, inArray } from 'drizzle-orm'
-import { messages, products } from '../db/schema.ts'
+import { and, desc, eq, inArray, or } from 'drizzle-orm'
+import { conversations, messages, products } from '../db/schema.ts'
 import type { ChatMessage } from '../models/chat.ts'
 import { catalogScope } from '../stores/index.ts'
 import type { Ctx } from '../tools/ctx.ts'
@@ -56,9 +56,35 @@ async function ordersBlock(ctx: Ctx) {
   }`
 }
 
+// The widget passes the product page the customer has open, as the store's product id.
+async function viewingBlock(ctx: Ctx) {
+  if (ctx.actor !== 'customer' || !ctx.conversationId) return null
+  const [conv] = await ctx.db
+    .select({ meta: conversations.meta })
+    .from(conversations)
+    .where(eq(conversations.id, ctx.conversationId))
+  const ref = conv?.meta?.productId
+  if (!ref) return null
+  const [p] = await ctx.db
+    .select()
+    .from(products)
+    .where(
+      and(
+        eq(products.shopId, ctx.shop.id),
+        eq(products.status, 'active'),
+        or(eq(products.externalId, ref), eq(products.id, ref)),
+      ),
+    )
+  return p ? `The customer is looking at this product page: ${p.id} | ${p.name}` : null
+}
+
 export async function contextBlock(ctx: Ctx) {
-  const [catalog, open] = await Promise.all([catalogBlock(ctx), ordersBlock(ctx)])
-  return `${catalog}\n\n${open}`
+  const [catalog, open, viewing] = await Promise.all([
+    catalogBlock(ctx),
+    ordersBlock(ctx),
+    viewingBlock(ctx),
+  ])
+  return [viewing, catalog, open].filter(Boolean).join('\n\n')
 }
 
 export async function history(
