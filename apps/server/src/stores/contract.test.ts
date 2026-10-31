@@ -336,6 +336,23 @@ describe('shopify specifics', () => {
     })
   })
 
+  it('posts a banner as a blog article', async () => {
+    const { shopify, connector } = await connect()
+    const { url } = await connector.publishPost!({
+      title: 'Eid collection',
+      body: 'Notun kurti <3',
+      imageUrl: 'https://saudaai.example/media/b1',
+    })
+    expect(url).toBe(`https://${shopifyDomain}/blogs/news/eid-collection`)
+    expect(shopify.ops.find((o) => o.op === 'articleCreate')!.variables).toMatchObject({
+      article: {
+        blogId: 'gid://shopify/Blog/1',
+        image: { url: 'https://saudaai.example/media/b1' },
+        isPublished: true,
+      },
+    })
+  })
+
   it('adjusts stock at the first location', async () => {
     const { shopify, connector } = await connect()
     expect(await connector.adjustStock!('gid://shopify/ProductVariant/9001', 3)).toBe(7)
@@ -505,6 +522,32 @@ describe('custom store writes', () => {
     await expect(connector.adjustStock!('nope', 1)).rejects.toMatchObject({ status: 404 })
   })
 
+  it('publishes a banner post that shows on the demo store home page', async () => {
+    const t = await testShop()
+    const app = createStoreApp(await openDb(':memory:'), { token: 'store-token-1' })
+    vi.stubGlobal('fetch', (async (input: string | URL | Request, init?: RequestInit) =>
+      app.fetch(new Request(String(input), init))) as typeof fetch)
+    const { connector } = await connectStore(
+      t.db,
+      t.shop,
+      {
+        kind: 'custom',
+        baseUrl: 'https://demo-store.test',
+        credentials: { token: 'store-token-1' },
+      },
+      Date.now(),
+    )
+    const { url } = await connector!.publishPost!({
+      title: 'Eid collection',
+      body: 'Notun kurti esheche',
+      imageUrl: 'https://saudaai.example/media/banner1',
+    })
+    expect(url).toMatch(/#post-/)
+    const home = await (await app.request('/')).text()
+    expect(home).toContain('src="https://saudaai.example/media/banner1"')
+    expect(home).toContain('Notun kurti esheche')
+  })
+
   it('reports a site without the optional routes as not supported', async () => {
     const t = await testShop()
     vi.stubGlobal('fetch', fakeStore(demoProducts()).fetch)
@@ -515,5 +558,8 @@ describe('custom store writes', () => {
       Date.now(),
     )
     await expect(connector!.adjustStock!('v1', 1)).rejects.toMatchObject({ status: 404 })
+    await expect(
+      connector!.publishPost!({ title: 't', body: 'b', imageUrl: 'https://x.example/i' }),
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

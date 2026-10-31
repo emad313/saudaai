@@ -34,6 +34,8 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
     const has = (word: string) => query.includes(word)
     const op = [
       'webhookSubscriptionCreate',
+      'articleCreate',
+      'blogs(first',
       'orders(first',
       'order(id: $id) { id name',
       'draftOrderCreate',
@@ -67,6 +69,10 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
         ]
         return ok({ product: all.find((p: { id: string }) => p.id === variables.id) ?? null })
       }
+      case 'blogs(first':
+        return ok({ blogs: { nodes: [{ id: 'gid://shopify/Blog/1', handle: 'news' }] } })
+      case 'articleCreate':
+        return ok({ articleCreate: { article: { handle: 'eid-collection' }, userErrors: [] } })
       case 'orders(first':
         return ok({
           orders: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [fixture('order')] },

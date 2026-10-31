@@ -82,6 +82,7 @@ export interface StoreConnector {
   createProduct?(p: Omit<ExternalProduct, 'externalId'>): Promise<ExternalProduct>
   publishProduct?(externalId: string): Promise<void>
   registerWebhooks?(url: string): Promise<void>
+  publishPost?(post: { title: string; body: string; imageUrl: string }): Promise<{ url: string }>
   parseWebhook(req: { headers: Record<string, string>; raw: string }): Promise<StoreEvent[]>
 }
 

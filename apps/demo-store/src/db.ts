@@ -36,6 +36,8 @@ const schema = [
     id text primary key, number text not null unique, customer text not null, lines text not null,
     shipping_poisha integer not null, total_poisha integer not null, paid_poisha integer not null default 0,
     status text not null, payment_method text not null, note text, tags text not null, created_at integer not null)`,
+  `create table if not exists posts (
+    id text primary key, title text not null, body text not null, image_url text not null, created_at integer not null)`,
 ]
 
 type Seed = {

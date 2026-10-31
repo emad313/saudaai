@@ -4,6 +4,10 @@ import { z } from 'zod'
 import { newId } from '../db/ids.ts'
 import { productImage } from '../catalog/image.ts'
 import { postToPage } from '../channels/page.ts'
+import { env } from '../env.ts'
+import { loadMedia } from '../media/store.ts'
+import { storeFor } from '../stores/index.ts'
+import { StoreError } from '../stores/types.ts'
 import { conversations, customerIdentities, orders, orderStatuses } from '../db/schema.ts'
 import { canSendFreeform } from '../channels/window.ts'
 import type { Ctx } from '../tools/ctx.ts'
@@ -468,6 +472,43 @@ export const tools: ToolDef[] = [
       `Post this on the Facebook Page? (${a.mediaIds.length} ${a.mediaIds.length === 1 ? 'image' : 'images'})\n\n${a.caption}`,
     run: (ctx, a) => postToPage(ctx.db, a),
     done: (r: { url: string }) => `Posted on the Page: ${r.url}`,
+  }),
+  tool({
+    name: 'post_to_website',
+    description:
+      "Put a banner (usually a make_ad banner, by mediaId) with a title and short text on the shop's website as a post. The owner approves it first.",
+    schema: z.object({
+      mediaId: id,
+      title: z.string().min(1).max(120),
+      text: z.string().min(1).max(2000),
+    }),
+    expose: 'seller',
+    guard: () => true,
+    preview: async (_ctx, a) => `Post this on the website?\n\n${a.title}\n${a.text}`,
+    run: async (ctx, a) => {
+      const { connector } = await storeFor(ctx.db, ctx.shop.id)
+      if (!connector?.publishPost) {
+        throw new ToolError(
+          'in_store',
+          'this store does not take posts from SaudaAI, add the banner in the store admin',
+        )
+      }
+      if (!(await loadMedia(ctx.db, a.mediaId))) throw new ToolError('not_found', 'image not found')
+      try {
+        return await connector.publishPost({
+          title: a.title,
+          body: a.text,
+          imageUrl: `${env.PUBLIC_BASE_URL}/media/${a.mediaId}`,
+        })
+      } catch (err) {
+        if (!(err instanceof StoreError)) throw err
+        throw new ToolError(
+          err.status === 404 ? 'in_store' : 'store_failed',
+          err.status === 404 ? `${err.message}, add the banner in the store admin` : err.message,
+        )
+      }
+    },
+    done: (r: { url: string }) => `Posted on the website: ${r.url}`,
   }),
   tool({
     name: 'sales_report',

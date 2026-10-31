@@ -82,6 +82,12 @@ export function customConnector(row: StoreRow, creds: Credentials, secret: strin
         throw new StoreError('the site does not take stock changes from SaudaAI', 404)
       return (await json(res, z.object({ stock: z.number().int() }))).stock
     },
+    async publishPost(post) {
+      const res = await call('POST', '/posts', post)
+      if (res.status === 404 || res.status === 405)
+        throw new StoreError('the site does not take posts from SaudaAI', 404)
+      return json(res, z.object({ url: z.string() }))
+    },
     async getOrder(externalId) {
       const res = await call('GET', `/orders/${encodeURIComponent(externalId)}`)
       if (res.status === 404) return null

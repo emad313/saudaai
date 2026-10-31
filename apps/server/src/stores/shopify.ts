@@ -498,6 +498,32 @@ export function shopifyConnector(
       return product
     },
 
+    // Shopify has no hero-banner API; a blog article with the banner is the closest public post.
+    async publishPost(post) {
+      const data = await gql<{ blogs: { nodes: { id: string; handle: string }[] } }>(
+        `{ blogs(first: 1) { nodes { id handle } } }`,
+      )
+      const blog = data.blogs.nodes[0]
+      if (!blog) throw new StoreError('shopify: the store has no blog to post to', 404)
+      const res = await gql<{
+        articleCreate: { article: { handle: string } | null; userErrors: { message: string }[] }
+      }>(
+        `mutation($article: ArticleCreateInput!) { articleCreate(article: $article) { article { handle } userErrors { message } } }`,
+        {
+          article: {
+            blogId: blog.id,
+            title: post.title,
+            body: `<p>${post.body.replace(/[&<>]/g, (ch) => `&#${ch.charCodeAt(0)};`)}</p>`,
+            image: { url: post.imageUrl },
+            isPublished: true,
+            author: { name: row.name },
+          },
+        },
+      )
+      userErrors(res.articleCreate)
+      return { url: `https://${domain}/blogs/${blog.handle}/${res.articleCreate.article!.handle}` }
+    },
+
     async publishProduct(externalId) {
       const res = await gql<{ productUpdate: { userErrors: { message: string }[] } }>(
         `mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { message } } }`,

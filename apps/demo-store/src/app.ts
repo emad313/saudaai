@@ -280,6 +280,19 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     return c.json({ stock })
   })
 
+  api.post('/posts', async (c) => {
+    const post = z
+      .object({ title: z.string().min(1).max(120), body: z.string().max(2000), imageUrl: z.url() })
+      .safeParse(await c.req.json())
+    if (!post.success) return c.json({ error: post.error.issues[0]?.message }, 400)
+    const id = randomUUID()
+    await db.execute({
+      sql: 'insert into posts values (?, ?, ?, ?, ?)',
+      args: [id, post.data.title, post.data.body, post.data.imageUrl, Date.now()],
+    })
+    return c.json({ externalId: id, url: `${new URL(c.req.url).origin}/#post-${id}` }, 201)
+  })
+
   api.post('/orders', async (c) => {
     const input = orderInput.safeParse(await c.req.json())
     if (!input.success) return c.json({ error: input.error.issues[0]?.message }, 400)
@@ -408,7 +421,18 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     }
   })
 
-  app.get('/', async (c) => c.html(shopPage(await loadProducts(db, "status = 'active'"), widget())))
+  app.get('/', async (c) => {
+    const { rows } = await db.execute('select * from posts order by created_at desc limit 1')
+    const banner = rows[0]
+      ? {
+          id: String(rows[0].id),
+          title: String(rows[0].title),
+          body: String(rows[0].body),
+          imageUrl: String(rows[0].image_url),
+        }
+      : null
+    return c.html(shopPage(await loadProducts(db, "status = 'active'"), widget(), banner))
+  })
 
   app.get('/p/:id', async (c) => {
     const [p] = await loadProducts(db, "id = ? and status = 'active'", [c.req.param('id')])

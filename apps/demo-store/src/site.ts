@@ -41,6 +41,9 @@ function page(title: string, body: string, widget: Widget) {
   .brand { font-weight: 700; font-size: 20px; }
   .note { color: var(--muted); font-size: 13px; }
   main { max-width: 1080px; margin: 0 auto; padding: 24px 20px 96px; }
+  .hero { margin: 0 0 24px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 20px rgb(69 90 100 / .08); }
+  .hero img { display: block; width: 100%; height: auto; }
+  .hero p { margin: 0; padding: 12px 16px; color: var(--muted); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
   .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 20px rgb(69 90 100 / .08); }
   .card svg { display: block; width: 100%; height: auto; }
@@ -73,7 +76,9 @@ ${script}
 </html>`
 }
 
-export function shopPage(products: Product[], widget: Widget) {
+type Banner = { id: string; title: string; body: string; imageUrl: string } | null
+
+export function shopPage(products: Product[], widget: Widget, banner: Banner = null) {
   const cards = products
     .map(
       (p) => `<a class="card" href="/p/${encodeURIComponent(p.id)}">${swatch(p, 200)}<div>
@@ -83,7 +88,10 @@ export function shopPage(products: Product[], widget: Widget) {
       </div></a>`,
     )
     .join('')
-  return page("Nusrat's Closet", `<div class="grid">${cards}</div>`, widget)
+  const hero = banner
+    ? `<section class="hero" id="post-${esc(banner.id)}"><img src="${esc(banner.imageUrl)}" alt="${esc(banner.title)}"><p>${esc(banner.body)}</p></section>`
+    : ''
+  return page("Nusrat's Closet", `${hero}<div class="grid">${cards}</div>`, widget)
 }
 
 export function productPage(p: Product, widget: Widget) {
