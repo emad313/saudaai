@@ -311,6 +311,17 @@ describe('shopify specifics', () => {
     ).toEqual([{ type: 'stock', variantExternalId: 'gid://shopify/ProductVariant/9002', stock: 7 }])
   })
 
+  it('subscribes to the webhooks it understands', async () => {
+    const { shopify, connector } = await connect()
+    await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')
+    const subs = shopify.ops.filter((o) => o.op === 'webhookSubscriptionCreate')
+    expect(subs.map((o) => o.variables.topic)).toContain('INVENTORY_LEVELS_UPDATE')
+    expect(subs[0]!.variables.sub).toEqual({
+      callbackUrl: 'https://saudaai.example/webhooks/store/s1',
+      format: 'JSON',
+    })
+  })
+
   it('adjusts stock at the first location', async () => {
     const { shopify, connector } = await connect()
     expect(await connector.adjustStock!('gid://shopify/ProductVariant/9001', 3)).toBe(7)
@@ -391,6 +402,14 @@ describe('woocommerce specifics', () => {
       path: '/orders/727',
       body: { set_paid: true, status: 'processing' },
     })
+  })
+
+  it('creates its webhooks with our secret', async () => {
+    const { woo, connector } = await connect()
+    await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')
+    const made = woo.calls.filter((c) => c.method === 'POST' && c.path === '/webhooks')
+    expect(made).toHaveLength(5)
+    expect(made[0]!.body).toMatchObject({ secret: 'wc_secret', status: 'active' })
   })
 
   it('ignores the ping, and re-reads the product on a signed update', async () => {

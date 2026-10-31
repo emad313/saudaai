@@ -33,6 +33,7 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
     }
     const has = (word: string) => query.includes(word)
     const op = [
+      'webhookSubscriptionCreate',
       'draftOrderCreate',
       'draftOrderComplete',
       'orderCancel',

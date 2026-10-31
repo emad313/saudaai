@@ -299,6 +299,29 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
       await call('PUT', `/products/${externalId}`, { status: 'publish' })
     },
 
+    async registerWebhooks(url) {
+      const { data: existing } = await call<{ topic: string; delivery_url: string }[]>(
+        'GET',
+        '/webhooks?per_page=100',
+      )
+      for (const topic of [
+        'product.created',
+        'product.updated',
+        'product.deleted',
+        'order.created',
+        'order.updated',
+      ]) {
+        if (existing.some((w) => w.topic === topic && w.delivery_url === url)) continue
+        await call('POST', '/webhooks', {
+          name: `SaudaAI ${topic}`,
+          topic,
+          delivery_url: url,
+          secret,
+          status: 'active',
+        })
+      }
+    },
+
     async parseWebhook({ headers, raw }) {
       const sig = headers['x-wc-webhook-signature'] ?? ''
       if (!secret || !sig || !hmacMatches(raw, secret, sig, 'base64')) {

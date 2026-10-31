@@ -406,6 +406,28 @@ export function shopifyConnector(
       userErrors(res.productUpdate)
     },
 
+    // Subscriptions made through the API are signed with the app secret we already hold.
+    async registerWebhooks(url) {
+      for (const topic of [
+        'PRODUCTS_CREATE',
+        'PRODUCTS_UPDATE',
+        'PRODUCTS_DELETE',
+        'INVENTORY_LEVELS_UPDATE',
+        'ORDERS_CREATE',
+        'ORDERS_UPDATED',
+      ]) {
+        const res = await gql<{
+          webhookSubscriptionCreate: { userErrors: { message: string }[] }
+        }>(
+          `mutation($topic: WebhookSubscriptionTopic!, $sub: WebhookSubscriptionInput!) { webhookSubscriptionCreate(topic: $topic, webhookSubscription: $sub) { userErrors { message } } }`,
+          { topic, sub: { callbackUrl: url, format: 'JSON' } },
+        )
+        const err = res.webhookSubscriptionCreate.userErrors[0]
+        if (err && !/already been taken/i.test(err.message))
+          throw new StoreError(`shopify: ${err.message}`)
+      }
+    },
+
     async parseWebhook({ headers, raw }) {
       const sig = headers['x-shopify-hmac-sha256'] ?? ''
       if (!secret || !sig || !hmacMatches(raw, secret, sig, 'base64')) {

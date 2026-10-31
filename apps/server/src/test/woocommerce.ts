@@ -45,6 +45,7 @@ export function fakeWoo(opts: { currency?: string } = {}) {
         fixture('variations-101').find((v: { id: number }) => String(v.id) === variation[1]),
       )
     }
+    if (path === '/webhooks' && method === 'GET') return json([])
     if (path === '/orders' && method === 'POST') return json(fixture('order'), 201)
     if (/^\/orders\/\d+$/.test(path) && method === 'GET') return json(fixture('order'))
     return json({ ok: true })

@@ -100,6 +100,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       lastError: row.lastError,
       credentials: maskedCredentials(row),
       webhookUrl: `${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`,
+      webhooksAutomatic: row.kind !== 'custom' && env.PUBLIC_BASE_URL.startsWith('https://'),
       // Shopify signs with the app secret the seller already has; the others need ours pasted in.
       webhookSecret: row.kind === 'shopify' ? null : webhookSecretOf(row),
     }
@@ -178,7 +179,13 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
               }
     try {
       const { row, connector } = await connectStore(db, shop, input, deps.now())
-      if (connector) await pullStore(db, row, connector, deps.now())
+      if (connector) {
+        await pullStore(db, row, connector, deps.now())
+        // Stores cannot call a laptop on http://localhost; locally the 30 minute pull covers it.
+        if (connector.registerWebhooks && env.PUBLIC_BASE_URL.startsWith('https://')) {
+          await connector.registerWebhooks(`${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`)
+        }
+      }
     } catch (err) {
       if (err instanceof StoreError) throw new HTTPException(400, { message: err.message })
       throw err
