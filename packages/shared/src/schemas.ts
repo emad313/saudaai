@@ -64,3 +64,26 @@ export const orderForm = z.object({
 
 export type ShopPatch = z.infer<typeof shopPatch>
 export type OrderForm = z.infer<typeof orderForm>
+
+export const storeConnect = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('builtin') }),
+  z.object({
+    kind: z.literal('custom'),
+    baseUrl: z.url(),
+    token: z.string().min(8),
+  }),
+  z.object({
+    kind: z.literal('shopify'),
+    shopDomain: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/, 'like your-shop.myshopify.com'),
+    accessToken: z.string().min(10),
+    apiSecret: z.string().min(10),
+  }),
+  z.object({
+    kind: z.literal('woocommerce'),
+    baseUrl: z.url({ protocol: /^https$/ }),
+    consumerKey: z.string().startsWith('ck_'),
+    consumerSecret: z.string().startsWith('cs_'),
+  }),
+])

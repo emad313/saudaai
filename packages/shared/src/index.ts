@@ -9,6 +9,7 @@ export {
   productPatch,
   sellerMessage,
   shopPatch,
+  storeConnect,
   variantAdjust,
   type OrderForm,
   type ShopPatch,

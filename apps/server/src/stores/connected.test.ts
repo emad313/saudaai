@@ -19,7 +19,12 @@ async function connect(opts: { totalOffset?: number } = {}) {
   const { row, connector } = await connectStore(
     t.db,
     t.shop,
-    { kind: 'custom', baseUrl: storeUrl, credentials: { token: 'tok' }, webhookSecret: 'whsec' },
+    {
+      kind: 'custom',
+      baseUrl: storeUrl,
+      credentials: { token: 'tok-12345678' },
+      webhookSecret: 'whsec',
+    },
     t.ctx().now,
   )
   await pullStore(t.db, row, connector!, t.ctx().now)

@@ -1,11 +1,12 @@
 import { createHmac } from 'node:crypto'
 import { eq } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegram } from '../channels/telegram.ts'
 import { loginCodes, orders, pendingActions } from '../db/schema.ts'
 import { createInbox } from '../inbox.ts'
 import { fakeDeps, say } from '../test/deps.ts'
 import { now, testShop } from '../test/shop.ts'
+import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { findProducts } from '../tools/products.ts'
 import { createApp } from './app.ts'
 
@@ -155,5 +156,52 @@ describe('meta webhook', () => {
     expect(res.status).toBe(200)
     await new Promise((r) => setTimeout(r, 300))
     expect(f.seen).toHaveLength(1)
+  })
+})
+
+describe('store api', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('connects a custom store, never returns the token, and takes signed webhooks', async () => {
+    const cookie = await signIn()
+    const site = fakeStore(demoProducts())
+    vi.stubGlobal('fetch', site.fetch)
+    const put = await app.request('/api/store', {
+      method: 'PUT',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'custom', baseUrl: storeUrl, token: 'tok-wrong' }),
+    })
+    expect(put.status).toBe(400)
+
+    site.requests.length = 0
+    const ok = await app.request('/api/store', {
+      method: 'PUT',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'custom', baseUrl: storeUrl, token: 'tok-12345678' }),
+    })
+    expect(ok.status).toBe(200)
+    const view = (await ok.json()) as { webhookSecret: string; webhookUrl: string }
+    expect(JSON.stringify(view)).not.toContain('tok-12345678')
+    expect(view).toMatchObject({ kind: 'custom', name: 'Demo Site', status: 'connected' })
+    expect(view.webhookUrl).toContain(`/webhooks/store/${t.shop.id}`)
+    expect(site.requests).toContain('GET /saudaai/products')
+
+    const raw = JSON.stringify([{ type: 'product.delete', externalId: 'p1' }])
+    const hook = (sig: string) =>
+      app.request(`/webhooks/store/${t.shop.id}`, {
+        method: 'POST',
+        headers: { 'x-saudaai-signature': sig, 'content-type': 'application/json' },
+        body: raw,
+      })
+    expect((await hook('sha256=00')).status).toBe(401)
+    const signed = createHmac('sha256', view.webhookSecret).update(raw).digest('hex')
+    expect((await hook(`sha256=${signed}`)).status).toBe(200)
+    expect((await findProducts(t.ctx(), { query: 'kurti' })).matches).toEqual([])
+
+    const back = await app.request('/api/store', { method: 'DELETE', headers: { cookie } })
+    expect(await back.json()).toMatchObject({ kind: 'builtin' })
+    expect((await findProducts(t.ctx(), { query: 'kalo tshirt' })).matches.length).toBeGreaterThan(
+      0,
+    )
   })
 })

@@ -15,7 +15,10 @@ export function fakeStore(products: ExternalProduct[], opts: { totalOffset?: num
     const url = new URL(String(input))
     const method = init?.method ?? 'GET'
     requests.push(`${method} ${url.pathname}`)
-    if (init?.headers && (init.headers as Record<string, string>).authorization !== 'Bearer tok') {
+    if (
+      init?.headers &&
+      (init.headers as Record<string, string>).authorization !== 'Bearer tok-12345678'
+    ) {
       return reply(401, { error: 'bad token' })
     }
     const path = url.pathname.replace(/^\/saudaai/, '')

@@ -1,12 +1,14 @@
 import { Cron } from 'croner'
-import { and, eq, gt, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, ne, sql } from 'drizzle-orm'
 import type { Deps } from '../agent/deps.ts'
 import { sellerConversation } from '../agent/messaging.ts'
 import { expirePending, proposeOrRun } from '../agent/pending.ts'
 import type { TurnCtx } from '../agent/registry.ts'
 import { newId } from '../db/ids.ts'
-import { pendingActions, shops } from '../db/schema.ts'
+import { pendingActions, shops, stores } from '../db/schema.ts'
 import { log } from '../log.ts'
+import { connectorFor } from '../stores/index.ts'
+import { pullStore } from '../stores/sync.ts'
 import type { Shop } from '../tools/ctx.ts'
 import { ordersDue } from '../tools/orders.ts'
 import { dailySummary } from '../tools/reports.ts'
@@ -69,6 +71,17 @@ export function summaryText(s: Awaited<ReturnType<typeof dailySummary>>) {
     .join('\n')
 }
 
+// Webhooks can be missed (store down, URL not set yet); a periodic full pull catches up.
+export async function syncStores(deps: Deps) {
+  for (const row of await deps.db.select().from(stores).where(ne(stores.kind, 'builtin'))) {
+    const connector = connectorFor(row)
+    if (!connector) continue
+    await pullStore(deps.db, row, connector, deps.now()).catch((err: Error) =>
+      log.warn({ err, storeId: row.id }, 'store sync failed'),
+    )
+  }
+}
+
 async function linkedShops(deps: Deps) {
   return deps.db.select().from(shops).where(isNotNull(shops.telegramChatId))
 }
@@ -97,6 +110,10 @@ export function startJobs(deps: Deps) {
           if (n) log.info({ shopId: shop.id, n }, 'payment reminders drafted')
         }
       }),
+    ),
+    new Cron(
+      '*/30 * * * *',
+      guard('store sync', () => syncStores(deps)),
     ),
     new Cron(
       '0 22 * * *',

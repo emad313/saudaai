@@ -15,6 +15,9 @@ import { env } from '../env.ts'
 import type { Inbox } from '../inbox.ts'
 import { log } from '../log.ts'
 import type { Services } from '../services.ts'
+import { storeFor } from '../stores/index.ts'
+import { applyEvents } from '../stores/sync.ts'
+import { StoreError } from '../stores/types.ts'
 
 // One deployment serves one demo shop; its Page and WhatsApp number are configured by env.
 export function channelShop(db: Db) {
@@ -83,6 +86,23 @@ export function webhookRoutes(services: Pick<Services, 'db' | 'inbox' | 'telegra
       )
     }
     return c.text('ok')
+  })
+
+  app.post('/webhooks/store/:shopId', async (c) => {
+    const { row, connector } = await storeFor(services.db, c.req.param('shopId'))
+    if (!row || !connector) return c.text('no store', 404)
+    const raw = await c.req.text()
+    const headers = Object.fromEntries(
+      Object.entries(c.req.header()).map(([k, v]) => [k.toLowerCase(), v]),
+    )
+    try {
+      const events = await connector.parseWebhook({ headers, raw })
+      await applyEvents(services.db, row, events, Date.now())
+      return c.json({ ok: true, applied: events.length })
+    } catch (err) {
+      if (err instanceof StoreError && err.status === 401) return c.text('bad signature', 401)
+      throw err
+    }
   })
 
   const bot = services.telegram.bot

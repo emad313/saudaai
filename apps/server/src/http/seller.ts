@@ -5,6 +5,7 @@ import {
   productPatch,
   sellerMessage,
   shopPatch,
+  storeConnect,
   variantAdjust,
 } from '@saudaai/shared'
 import { and, desc, eq, gte, inArray, like, ne, or, sql } from 'drizzle-orm'
@@ -32,7 +33,17 @@ import type { Ctx, Shop } from '../tools/ctx.ts'
 import { customerView, requireCustomer } from '../tools/customers.ts'
 import { getOrder, listOrders, recordPayment, updateOrderStatus } from '../tools/orders.ts'
 import { adjustStock, getProduct, loadVariants, updateProduct } from '../tools/products.ts'
-import { catalogScope } from '../stores/index.ts'
+import { env } from '../env.ts'
+import {
+  catalogScope,
+  connectStore,
+  maskedCredentials,
+  storeFor,
+  webhookSecretOf,
+  type ConnectInput,
+} from '../stores/index.ts'
+import { pullStore } from '../stores/sync.ts'
+import { StoreError } from '../stores/types.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
@@ -73,6 +84,73 @@ export function sellerRoutes(deps: Deps) {
       linkCode: c.get('readonly') ? null : shop.linkCode,
       readonly: c.get('readonly'),
     })
+  })
+
+  const storeView = async (shop: Shop) => {
+    const { row } = await storeFor(db, shop.id)
+    if (!row || row.kind === 'builtin') return { kind: 'builtin' as const, name: shop.name }
+    return {
+      kind: row.kind,
+      name: row.name,
+      baseUrl: row.baseUrl,
+      status: row.status,
+      lastSyncAt: row.lastSyncAt,
+      lastError: row.lastError,
+      credentials: maskedCredentials(row),
+      webhookUrl: `${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`,
+      // Shopify signs with the app secret the seller already has; the others need ours pasted in.
+      webhookSecret: row.kind === 'shopify' ? null : webhookSecretOf(row),
+    }
+  }
+
+  app.get('/store', async (c) => c.json(await storeView(c.get('shop'))))
+
+  app.put('/store', async (c) => {
+    const shop = c.get('shop')
+    const p = await body(c, storeConnect)
+    const input: ConnectInput =
+      p.kind === 'builtin'
+        ? { kind: 'builtin', credentials: {} }
+        : p.kind === 'custom'
+          ? { kind: 'custom', baseUrl: p.baseUrl, credentials: { token: p.token } }
+          : p.kind === 'shopify'
+            ? {
+                kind: 'shopify',
+                baseUrl: `https://${p.shopDomain}`,
+                credentials: { accessToken: p.accessToken },
+                webhookSecret: p.apiSecret,
+              }
+            : {
+                kind: 'woocommerce',
+                baseUrl: p.baseUrl,
+                credentials: { consumerKey: p.consumerKey, consumerSecret: p.consumerSecret },
+              }
+    try {
+      const { row, connector } = await connectStore(db, shop, input, deps.now())
+      if (connector) await pullStore(db, row, connector, deps.now())
+    } catch (err) {
+      if (err instanceof StoreError) throw new HTTPException(400, { message: err.message })
+      throw err
+    }
+    return c.json(await storeView(shop))
+  })
+
+  app.post('/store/sync', async (c) => {
+    const shop = c.get('shop')
+    const { row, connector } = await storeFor(db, shop.id)
+    if (!row || !connector) throw new HTTPException(400, { message: 'no store connected' })
+    try {
+      return c.json(await pullStore(db, row, connector, deps.now()))
+    } catch (err) {
+      if (err instanceof StoreError) throw new HTTPException(502, { message: err.message })
+      throw err
+    }
+  })
+
+  app.delete('/store', async (c) => {
+    const shop = c.get('shop')
+    await connectStore(db, shop, { kind: 'builtin', credentials: {} }, deps.now())
+    return c.json(await storeView(shop))
   })
 
   app.patch('/shop', async (c) => {
