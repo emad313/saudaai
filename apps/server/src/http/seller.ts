@@ -11,7 +11,7 @@ import {
 import { and, desc, eq, gte, inArray, like, ne, or, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import type { Deps } from '../agent/deps.ts'
+import type { Deps, SellerLine } from '../agent/deps.ts'
 import { conversationById, sendToCustomer } from '../agent/messaging.ts'
 import { approve, cancel } from '../agent/pending.ts'
 import { asSeller, toolByName, type TurnCtx } from '../agent/registry.ts'
@@ -28,6 +28,7 @@ import {
   products,
   shops,
 } from '../db/schema.ts'
+import type { Inbox } from '../inbox.ts'
 import { invoicePdf } from '../render/invoice.ts'
 import type { Ctx, Shop } from '../tools/ctx.ts'
 import { customerView, requireCustomer } from '../tools/customers.ts'
@@ -49,7 +50,7 @@ import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
 import type { SellerEnv } from './session.ts'
 
-export function sellerRoutes(deps: Deps) {
+export function sellerRoutes(deps: Deps, inbox: Inbox) {
   const app = new Hono<SellerEnv>()
   const { db } = deps
   const ctx = (shop: Shop): Ctx => ({ db, shop, actor: 'seller', now: deps.now() })
@@ -103,6 +104,55 @@ export function sellerRoutes(deps: Deps) {
       webhookSecret: row.kind === 'shopify' ? null : webhookSecretOf(row),
     }
   }
+
+  // The dashboard command box: same seller agent and history as the Telegram bot, replies come back here.
+  app.post('/command', async (c) => {
+    const shop = c.get('shop')
+    const replies: { text: string; choices?: string[] }[] = []
+    const media: string[] = []
+    const asked: string[] = []
+    const line: SellerLine = {
+      notify: async (_shop, text, choices) => {
+        replies.push(choices ? { text, choices } : { text })
+      },
+      askApproval: async (s, pending) => {
+        asked.push(pending.id)
+        await deps.seller.askApproval(s, pending)
+      },
+      settle: (s, pending, outcome) => deps.seller.settle(s, pending, outcome),
+      sendMedia: async (_shop, ids, caption) => {
+        media.push(...ids)
+        if (caption) replies.push({ text: caption })
+      },
+    }
+    const input = { chatId: shop.telegramChatId ?? `web_${shop.id}`, messageId: newId() }
+    let turn
+    if (c.req.header('content-type')?.startsWith('multipart/form-data')) {
+      const voice = (await c.req.formData()).get('voice')
+      if (!(voice instanceof File) || voice.size > 10_000_000) {
+        throw new HTTPException(400, { message: 'voice note missing or too large' })
+      }
+      const bytes = Buffer.from(await voice.arrayBuffer())
+      turn = await inbox.seller(
+        shop,
+        { ...input, kind: 'voice', media: { bytes, mime: voice.type || 'audio/webm' } },
+        line,
+      )
+    } else {
+      const { text } = await body(c, sellerMessage)
+      turn = await inbox.seller(shop, { ...input, kind: 'text', text }, line)
+    }
+    const pending = asked.length
+      ? await db.select().from(pendingActions).where(inArray(pendingActions.id, asked))
+      : []
+    return c.json({
+      transcript: turn.transcript,
+      replies,
+      media: media.map((id) => `/media/${id}`),
+      pending,
+      failed: turn.failed,
+    })
+  })
 
   app.get('/store', async (c) => c.json(await storeView(c.get('shop'))))
 

@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegram } from '../channels/telegram.ts'
 import { loginCodes } from '../db/schema.ts'
 import { createInbox } from '../inbox.ts'
-import { fakeDeps, say } from '../test/deps.ts'
+import { call, calls, fakeDeps, say } from '../test/deps.ts'
 import { now, testShop } from '../test/shop.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
+import { listOrders } from '../tools/orders.ts'
 import { findProducts } from '../tools/products.ts'
 import { createApp } from './app.ts'
 
@@ -223,5 +224,29 @@ describe('store api', () => {
     expect((await findProducts(t.ctx(), { query: 'kalo tshirt' })).matches.length).toBeGreaterThan(
       0,
     )
+  })
+})
+
+describe('command box', () => {
+  it('runs the seller agent and answers inline, approvals still reach telegram', async () => {
+    const [draft] = await listOrders(t.ctx(), { status: ['draft'] })
+    f = fakeDeps(t.db, [
+      calls(call('send_order_confirmation', { orderId: draft!.orderId })),
+      say(`#${draft!.number} confirm korte approve din.`),
+    ])
+    const inbox = createInbox(f.deps)
+    app = createApp({ db: t.db, deps: f.deps, inbox, telegram: createTelegram(t.db) })
+    const cookie = await signIn()
+    const res = await app.request('/api/command', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ text: `${draft!.number} confirm koro` }),
+    })
+    const out = await res.json()
+    expect(out.replies[0].text).toContain(`#${draft!.number} confirm korte approve din.`)
+    expect(out.pending).toHaveLength(1)
+    expect(out.pending[0]).toMatchObject({ tool: 'send_order_confirmation', status: 'pending' })
+    expect(f.approvals.map((a) => a.id)).toEqual([out.pending[0].id])
+    expect(f.notes).toEqual([])
   })
 })

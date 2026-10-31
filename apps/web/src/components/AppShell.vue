@@ -5,6 +5,7 @@ import { api } from '../api.ts'
 import { useSession } from '../stores/session.ts'
 import type { Pending } from '../types.ts'
 import AppIcon from './AppIcon.vue'
+import CommandBox from './CommandBox.vue'
 
 const session = useSession()
 const route = useRoute()
@@ -233,5 +234,6 @@ async function logout() {
         <RouterView />
       </main>
     </div>
+    <CommandBox />
   </div>
 </template>

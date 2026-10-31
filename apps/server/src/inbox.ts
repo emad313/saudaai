@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from 'drizzle-orm'
 import PQueue from 'p-queue'
-import type { Conversation, Deps } from './agent/deps.ts'
+import type { Conversation, Deps, SellerLine } from './agent/deps.ts'
 import { runTurn } from './agent/loop.ts'
 import { sellerConversation } from './agent/messaging.ts'
 import { describeCustomerPhoto, photoNote, processProductPhoto } from './catalog/photo.ts'
@@ -187,7 +187,8 @@ export function createInbox(
       .catch((err) => log.error({ err, conversationId: conv.id }, 'customer message failed'))
   }
 
-  async function seller(shop: Shop, input: SellerInput) {
+  // `line` lets the dashboard command box take this turn's replies instead of Telegram.
+  async function seller(shop: Shop, input: SellerInput, line?: SellerLine) {
     const conv = await sellerConversation(deps, shop.id, input.chatId)
     await deps.db
       .update(conversations)
@@ -199,7 +200,7 @@ export function createInbox(
       if (input.kind === 'voice' && input.media) {
         mediaId = (await saveMedia(deps.db, input.media.bytes, input.media.mime)).id
         text = await deps.models.transcribe(input.media.bytes, input.media.mime)
-        await hooks.transcript?.(shop, text)
+        if (!line) await hooks.transcript?.(shop, text)
       }
       if (input.kind === 'photo' && input.media) {
         const photo = await processProductPhoto(deps, input.media.bytes, input.text ?? '')
@@ -221,7 +222,13 @@ export function createInbox(
         .select()
         .from(conversations)
         .where(eq(conversations.id, conv.id))
-      return runTurn(deps, { shop, actor: 'seller', conversation: fresh!, inputKind: input.kind })
+      const turn = await runTurn(line ? { ...deps, seller: line } : deps, {
+        shop,
+        actor: 'seller',
+        conversation: fresh!,
+        inputKind: input.kind,
+      })
+      return { ...turn, transcript: input.kind === 'voice' ? text : null }
     })
   }
 

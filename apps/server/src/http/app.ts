@@ -37,7 +37,7 @@ export function createApp(services?: Services) {
     app.route('/api/w', widgetRoutes(deps, inbox))
     const seller = new Hono<SellerEnv>()
     seller.use('*', requireShop(db))
-    seller.route('/', sellerRoutes(deps))
+    seller.route('/', sellerRoutes(deps, inbox))
     app.route('/api', seller)
 
     app.get('/media/:id', async (c) => {
