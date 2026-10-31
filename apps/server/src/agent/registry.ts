@@ -426,13 +426,13 @@ export const tools: ToolDef[] = [
   tool({
     name: 'make_ad',
     description:
-      'Make ready-to-post ad images for a product with an optional occasion (eid, puja, winter...) and offer line. Images are sent to the seller.',
+      'Make ready-to-post ad images for a product from its store photo, with an optional occasion (eid, puja, winter...) and offer line: square posts and a story by default, banner for the website top banner. Images are sent to the seller.',
     schema: z.object({
       productId: id,
       occasion: z.string().optional(),
       offerText: z.string().max(60).optional(),
       formats: z
-        .array(z.enum(['square', 'story']))
+        .array(z.enum(['square', 'story', 'banner']))
         .min(1)
         .optional(),
     }),

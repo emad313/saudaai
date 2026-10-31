@@ -26,12 +26,14 @@ export const productAttributes = z.object({
 })
 export type ProductAttributes = z.infer<typeof productAttributes>
 
+export type ImageSize = '1024x1024' | '1024x1792' | '1792x1024'
+
 export type Models = {
   plan(messages: ChatMessage[], tools: ToolSpec[]): Promise<PlanResult>
   transcribe(audio: Buffer, mime: string): Promise<string>
   segment(image: Buffer, prompt: string): Promise<Buffer | null>
   describe(image: Buffer, hint: string): Promise<ProductAttributes>
-  image(prompt: string, size: '1024x1024' | '1024x1792'): Promise<Buffer>
+  image(prompt: string, size: ImageSize): Promise<Buffer>
   readonly agentProvider: string
 }
 

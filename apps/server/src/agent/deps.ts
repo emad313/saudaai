@@ -20,7 +20,7 @@ export type Outbound = {
   typing?(conversation: Conversation): Promise<void>
 }
 
-export type AdFormat = 'square' | 'story'
+export type AdFormat = 'square' | 'story' | 'banner'
 
 export type Renderer = {
   invoice(shop: Shop, orderId: string): Promise<Media>

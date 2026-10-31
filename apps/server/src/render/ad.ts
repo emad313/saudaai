@@ -4,7 +4,7 @@ import type { AdFormat } from '../agent/deps.ts'
 import type { Db } from '../db/client.ts'
 import { log } from '../log.ts'
 import { derived, loadMedia, saveMedia, type Media } from '../media/store.ts'
-import type { Models } from '../models/index.ts'
+import type { ImageSize, Models } from '../models/index.ts'
 import { ToolError, type Ctx, type Shop } from '../tools/ctx.ts'
 import { requireProduct } from '../tools/products.ts'
 import { esc, screenshot } from './browser.ts'
@@ -28,11 +28,11 @@ export function offerPrice(pricePoisha: number, offerText?: string) {
   return Math.round((pricePoisha * (100 - pct)) / 100 / 100) * 100
 }
 
-const sizes: Record<AdFormat, { width: number; height: number; model: '1024x1024' | '1024x1792' }> =
-  {
-    square: { width: 1080, height: 1080, model: '1024x1024' },
-    story: { width: 1080, height: 1920, model: '1024x1792' },
-  }
+const sizes: Record<AdFormat, { width: number; height: number; model: ImageSize }> = {
+  square: { width: 1080, height: 1080, model: '1024x1024' },
+  story: { width: 1080, height: 1920, model: '1024x1792' },
+  banner: { width: 1920, height: 640, model: '1792x1024' },
+}
 
 type Parts = {
   shop: Shop
@@ -80,6 +80,18 @@ const footer = (p: Parts) =>
   `<div style="font-size:30px;font-weight:600">${esc(p.shop.name)}</div><div style="font-size:26px;opacity:.85">অর্ডার করতে মেসেজ করুন</div>`
 
 const layouts: Record<string, (p: Parts) => string> = {
+  // website hero: text left, product right, wide enough for a shop's top banner
+  wide: (
+    p,
+  ) => `<div style="width:1920px;height:640px;${backdrop(p)};position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(28,25,23,.82) 0%,rgba(28,25,23,.45) 45%,rgba(0,0,0,0) 68%)"></div>
+    ${productImg(p, [1180, 30, 600, 580], [1240, 80, 480, 480])}
+    <div style="position:absolute;left:110px;top:90px;width:900px;color:#fff">
+      <div style="font-size:84px;font-weight:700;line-height:1.1">${esc(p.headline)}</div>
+      <div style="font-size:44px;margin-top:18px">${esc(p.name)}</div>
+      <div style="margin-top:26px;display:flex;align-items:center;gap:26px">${priceBlock(p, 72)}${badge(p)}</div>
+    </div>
+    <div style="position:absolute;left:110px;bottom:56px;color:#fff;display:flex;gap:28px;align-items:baseline">${footer(p)}</div></div>`,
   side: (
     p,
   ) => `<div style="width:1080px;height:1080px;${backdrop(p)};position:relative;overflow:hidden">
@@ -111,7 +123,7 @@ const layouts: Record<string, (p: Parts) => string> = {
       <div style="margin-top:40px">${footer(p)}</div></div></div>`,
 }
 
-async function background(models: Models, prompt: string, size: '1024x1024' | '1024x1792') {
+async function background(models: Models, prompt: string, size: ImageSize) {
   try {
     const scene = await models.image(prompt, size)
     return `data:image/webp;base64,${scene.toString('base64')}`
@@ -156,14 +168,16 @@ export async function renderAds(
           ['side', f],
           ['band', f],
         ]
-      : [['story', f]],
+      : f === 'banner'
+        ? [['wide', f]]
+        : [['story', f]],
   )
   const out: Media[] = []
   for (const [layout, format] of jobs) {
     const s = sizes[format]
     const bg = await background(
       models,
-      `${prompt}, ${layout === 'side' ? 'subject space on the right' : 'centered'}`,
+      `${prompt}, ${layout === 'side' || layout === 'wide' ? 'subject space on the right' : 'centered'}`,
       s.model,
     )
     const png = await screenshot(layouts[layout]!({ ...parts, background: bg }), {
