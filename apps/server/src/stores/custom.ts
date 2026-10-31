@@ -1,11 +1,12 @@
 import { z } from 'zod'
 import type { Credentials, StoreRow } from './index.ts'
 import { failure, hmacMatches, queued, storeRequest } from './http.ts'
-import { externalProduct, storeEvents } from './schema.ts'
+import { externalProduct, storeEvents, storeOrder } from './schema.ts'
 import { StoreError, type StoreConnector } from './types.ts'
 
 const info = z.object({ name: z.string(), currency: z.string() })
 const page = z.object({ products: z.array(externalProduct), next: z.string().optional() })
+const orderPage = z.object({ orders: z.array(storeOrder), next: z.string().optional() })
 const created = z.object({
   externalId: z.string(),
   number: z.coerce.string(),
@@ -58,6 +59,15 @@ export function customConnector(row: StoreRow, creds: Credentials, secret: strin
     async updateOrder(externalId, change) {
       const res = await call('PATCH', `/orders/${encodeURIComponent(externalId)}`, change)
       if (!res.ok) throw await failure(res)
+    },
+    async getOrder(externalId) {
+      const res = await call('GET', `/orders/${encodeURIComponent(externalId)}`)
+      if (res.status === 404) return null
+      return json(res, storeOrder)
+    },
+    async listOrders(since, cursor) {
+      const q = new URLSearchParams({ since: String(since), ...(cursor ? { cursor } : {}) })
+      return json(await call('GET', `/orders?${q}`), orderPage)
     },
     async parseWebhook({ headers, raw }) {
       const sig = headers['x-saudaai-signature'] ?? ''

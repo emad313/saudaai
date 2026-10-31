@@ -7,6 +7,7 @@ import {
   type ExternalVariant,
   type StoreConnector,
   type StoreEvent,
+  type StoreOrder,
 } from './types.ts'
 
 type WooAttribute = { name: string; option?: string; options?: string[] }
@@ -39,7 +40,27 @@ type WooOrder = {
   total: string
   status: string
   date_paid: string | null
+  date_created_gmt?: string
+  shipping_total?: string
+  payment_method?: string
+  billing?: {
+    first_name: string
+    last_name: string
+    phone: string
+    email: string
+    address_1: string
+    city: string
+  }
+  line_items?: {
+    product_id: number
+    variation_id: number
+    quantity: number
+    price: number | string
+  }[]
 }
+
+// Abandoned or unpaid online checkouts are not real orders yet.
+const notPlaced = new Set(['pending', 'failed', 'checkout-draft', 'trash'])
 
 const poisha = (value: string) => parseTaka(value || '0') ?? 0
 
@@ -101,8 +122,39 @@ const orderStatus = (s: string) =>
     failed: 'cancelled',
   })[s] ?? 'confirmed'
 
+function fromWooOrder(o: WooOrder, site: string): StoreOrder | null {
+  if (notPlaced.has(o.status)) return null
+  const b = o.billing
+  const total = poisha(o.total)
+  return {
+    externalId: String(o.id),
+    number: o.number,
+    status: orderStatus(o.status) as StoreOrder['status'],
+    createdAt: o.date_created_gmt ? Date.parse(`${o.date_created_gmt}Z`) : Date.now(),
+    customer: {
+      name: [b?.first_name, b?.last_name].filter(Boolean).join(' ') || 'Customer',
+      phone: b?.phone || undefined,
+      email: b?.email || undefined,
+      address: b?.address_1 || undefined,
+      area: b?.city || undefined,
+    },
+    lines: (o.line_items ?? []).map((l) => ({
+      variantExternalId: variantId(l.product_id, l.variation_id || undefined),
+      productExternalId: String(l.product_id),
+      qty: l.quantity,
+      unitPricePoisha: poisha(String(l.price)),
+    })),
+    shippingPoisha: poisha(o.shipping_total ?? '0'),
+    totalPoisha: total,
+    paidPoisha: o.date_paid ? total : 0,
+    paymentMethod: o.payment_method || undefined,
+    adminUrl: `${site}/wp-admin/admin.php?page=wc-orders&action=edit&id=${o.id}`,
+  }
+}
+
 export function wooConnector(row: StoreRow, creds: Credentials, secret: string): StoreConnector {
-  const base = `${(row.baseUrl ?? '').replace(/\/$/, '')}/wp-json/wc/v3`
+  const site = (row.baseUrl ?? '').replace(/\/$/, '')
+  const base = `${site}/wp-json/wc/v3`
   const auth = `Basic ${Buffer.from(`${creds.consumerKey}:${creds.consumerSecret}`).toString('base64')}`
 
   async function call<T>(
@@ -235,6 +287,31 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
         }
       }
       if (change.note) await note(externalId, change.note)
+    },
+
+    async getOrder(externalId) {
+      const res = await queued(row.id, () =>
+        storeRequest(`${base}/orders/${encodeURIComponent(externalId)}`, {
+          headers: { authorization: auth },
+        }),
+      )
+      if (res.status === 404) return null
+      if (!res.ok) throw await failure(res)
+      return fromWooOrder((await res.json()) as WooOrder, site)
+    },
+
+    async listOrders(since, cursor) {
+      const page = Number(cursor ?? 1)
+      const after = encodeURIComponent(new Date(since).toISOString())
+      const { data, res } = await call<WooOrder[]>(
+        'GET',
+        `/orders?per_page=50&page=${page}&after=${after}`,
+      )
+      const pages = Number(res.headers.get('x-wp-totalpages') ?? 1)
+      return {
+        orders: data.map((o) => fromWooOrder(o, site)).filter((o): o is StoreOrder => o !== null),
+        next: page < pages ? String(page + 1) : undefined,
+      }
     },
 
     async adjustStock(variantExternalId, delta) {

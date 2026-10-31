@@ -35,6 +35,26 @@ export type ExternalOrder = {
   totalPoisha: number
 }
 
+// A full order as the store has it, for orders customers placed on the site itself.
+export type StoreOrder = {
+  externalId: string
+  number: string
+  status: 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  createdAt: number
+  customer: { name: string; phone?: string; email?: string; address?: string; area?: string }
+  lines: {
+    variantExternalId: string
+    productExternalId?: string
+    qty: number
+    unitPricePoisha: number
+  }[]
+  shippingPoisha: number
+  totalPoisha: number
+  paidPoisha: number
+  paymentMethod?: string
+  adminUrl?: string
+}
+
 export type OrderChange = {
   status?: 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
   paidPoisha?: number
@@ -56,6 +76,8 @@ export interface StoreConnector {
   getProduct(externalId: string): Promise<ExternalProduct | null>
   createOrder(input: ExternalOrderInput): Promise<ExternalOrder>
   updateOrder(externalId: string, change: OrderChange): Promise<void>
+  getOrder(externalId: string): Promise<StoreOrder | null>
+  listOrders(since: number, cursor?: string): Promise<{ orders: StoreOrder[]; next?: string }>
   adjustStock?(variantExternalId: string, delta: number): Promise<number>
   createProduct?(p: Omit<ExternalProduct, 'externalId'>): Promise<ExternalProduct>
   publishProduct?(externalId: string): Promise<void>

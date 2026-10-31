@@ -1,10 +1,17 @@
-import type { ExternalOrderInput, ExternalProduct, OrderChange } from '../stores/types.ts'
+import type {
+  ExternalOrderInput,
+  ExternalProduct,
+  OrderChange,
+  StoreOrder,
+} from '../stores/types.ts'
 
 export const storeUrl = 'https://shop.example.com'
 
 // An in-memory site speaking the SaudaAI Store API, served through a stubbed fetch.
 export function fakeStore(products: ExternalProduct[], opts: { totalOffset?: number } = {}) {
   const orders: (ExternalOrderInput & { externalId: string })[] = []
+  // orders customers placed on the website itself
+  const siteOrders: StoreOrder[] = []
   const changes: { externalId: string; change: OrderChange }[] = []
   const requests: string[] = []
 
@@ -30,6 +37,12 @@ export function fakeStore(products: ExternalProduct[], opts: { totalOffset?: num
       const p = products.find((x) => x.externalId === product[1])
       return p ? reply(200, p) : reply(404, { error: 'not found' })
     }
+    if (path === '/orders' && method === 'GET') return reply(200, { orders: siteOrders })
+    const placed = path.match(/^\/orders\/(.+)$/)
+    if (placed && method === 'GET') {
+      const o = siteOrders.find((x) => x.externalId === placed[1])
+      return o ? reply(200, o) : reply(404, { error: 'not found' })
+    }
     if (path === '/orders' && method === 'POST') {
       const input = body as ExternalOrderInput
       const externalId = `o${orders.length + 1}`
@@ -40,6 +53,17 @@ export function fakeStore(products: ExternalProduct[], opts: { totalOffset?: num
           .find((x) => x.externalId === l.variantExternalId)
         return sum + (v?.pricePoisha ?? 0) * l.qty
       }, 0)
+      siteOrders.push({
+        externalId,
+        number: `D-${100 + orders.length}`,
+        status: 'confirmed',
+        createdAt: Date.now(),
+        customer: input.customer,
+        lines: input.lines.map((l) => ({ ...l, unitPricePoisha: 0 })),
+        shippingPoisha: input.shippingPoisha,
+        totalPoisha: items + input.shippingPoisha,
+        paidPoisha: 0,
+      })
       return reply(200, {
         externalId,
         number: `D-${100 + orders.length}`,
@@ -55,7 +79,7 @@ export function fakeStore(products: ExternalProduct[], opts: { totalOffset?: num
     return reply(404, { error: `no route ${method} ${path}` })
   }
 
-  return { products, orders, changes, requests, fetch }
+  return { products, orders, siteOrders, changes, requests, fetch }
 }
 
 export const demoProducts = (): ExternalProduct[] => [

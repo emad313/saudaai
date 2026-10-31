@@ -34,6 +34,8 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
     const has = (word: string) => query.includes(word)
     const op = [
       'webhookSubscriptionCreate',
+      'orders(first',
+      'order(id: $id) { id name',
       'draftOrderCreate',
       'draftOrderComplete',
       'orderCancel',
@@ -65,6 +67,12 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
         ]
         return ok({ product: all.find((p: { id: string }) => p.id === variables.id) ?? null })
       }
+      case 'orders(first':
+        return ok({
+          orders: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [fixture('order')] },
+        })
+      case 'order(id: $id) { id name':
+        return ok({ order: variables.id === fixture('order').id ? fixture('order') : null })
       case 'draftOrderCreate':
         return ok({
           draftOrderCreate: { draftOrder: { id: 'gid://shopify/DraftOrder/777' }, ...none },

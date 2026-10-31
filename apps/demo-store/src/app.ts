@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { loadProducts, type Db, type Product } from './db.ts'
-import { adminPage, productPage, shopPage } from './site.ts'
+import { adminPage, messagePage, productPage, shopPage } from './site.ts'
 
 export { openDb } from './db.ts'
 
@@ -69,6 +69,96 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     }).catch((err: Error) => console.error(`webhook to saudaai failed: ${err.message}`))
   }
 
+  type OrderInput = z.infer<typeof orderInput>
+
+  // Prices come from this site's own catalog; stock is taken in the same transaction.
+  async function placeOrder(o: OrderInput) {
+    const tx = await db.transaction('write')
+    try {
+      let items = 0
+      const touched: string[] = []
+      const lines = []
+      for (const l of o.lines) {
+        const { rows } = await tx.execute({
+          sql: 'select * from variants where id = ?',
+          args: [l.variantExternalId],
+        })
+        const v = rows[0]
+        if (!v) throw new Error(`no variant ${l.variantExternalId}`)
+        if (v.stock !== null && Number(v.stock) < l.qty)
+          throw new Error(`only ${v.stock} left of ${v.id}`)
+        if (v.stock !== null) {
+          await tx.execute({
+            sql: 'update variants set stock = stock - ? where id = ?',
+            args: [l.qty, String(v.id)],
+          })
+          touched.push(String(v.id))
+        }
+        const unit = Number(v.price_poisha)
+        items += unit * l.qty
+        lines.push({
+          variantExternalId: String(v.id),
+          productExternalId: String(v.product_id),
+          qty: l.qty,
+          unitPricePoisha: unit,
+        })
+      }
+      const { rows: count } = await tx.execute('select count(*) as n from orders')
+      const id = randomUUID()
+      const number = `NC-${1001 + Number(count[0]!.n)}`
+      const total = items + o.shippingPoisha
+      await tx.execute({
+        sql: 'insert into orders values (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+        args: [
+          id,
+          number,
+          JSON.stringify(o.customer),
+          JSON.stringify(lines),
+          o.shippingPoisha,
+          total,
+          'confirmed',
+          o.paymentMethod,
+          o.note ?? null,
+          o.tags.join(','),
+          Date.now(),
+        ],
+      })
+      await tx.commit()
+      const stock = await db.execute({
+        sql: `select id, stock from variants where id in (${touched.map(() => '?').join(',') || "''"})`,
+        args: touched,
+      })
+      void notify(
+        stock.rows.map((r) => ({
+          type: 'stock',
+          variantExternalId: String(r.id),
+          stock: Number(r.stock),
+        })),
+      )
+      return { externalId: id, number, totalPoisha: total }
+    } catch (err) {
+      await tx.rollback()
+      throw err
+    } finally {
+      tx.close()
+    }
+  }
+
+  function storeOrder(r: Record<string, unknown>) {
+    return {
+      externalId: String(r.id),
+      number: String(r.number),
+      status: String(r.status),
+      createdAt: Number(r.created_at),
+      customer: JSON.parse(String(r.customer)),
+      lines: JSON.parse(String(r.lines)),
+      shippingPoisha: Number(r.shipping_poisha),
+      totalPoisha: Number(r.total_poisha),
+      paidPoisha: Number(r.paid_poisha),
+      paymentMethod: String(r.payment_method),
+    }
+  }
+
   const api = new Hono()
   api.use(async (c, next) => {
     if (c.req.header('authorization') !== `Bearer ${cfg.token}`)
@@ -97,73 +187,29 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
   api.post('/orders', async (c) => {
     const input = orderInput.safeParse(await c.req.json())
     if (!input.success) return c.json({ error: input.error.issues[0]?.message }, 400)
-    const o = input.data
-    const tx = await db.transaction('write')
     try {
-      let items = 0
-      const touched: string[] = []
-      for (const l of o.lines) {
-        const { rows } = await tx.execute({
-          sql: 'select * from variants where id = ?',
-          args: [l.variantExternalId],
-        })
-        const v = rows[0]
-        if (!v) throw new Error(`no variant ${l.variantExternalId}`)
-        if (v.stock !== null && Number(v.stock) < l.qty)
-          throw new Error(`only ${v.stock} left of ${v.id}`)
-        if (v.stock !== null) {
-          await tx.execute({
-            sql: 'update variants set stock = stock - ? where id = ?',
-            args: [l.qty, String(v.id)],
-          })
-          touched.push(String(v.id))
-        }
-        items += Number(v.price_poisha) * l.qty
-      }
-      const { rows: count } = await tx.execute('select count(*) as n from orders')
-      const id = randomUUID()
-      const number = `NC-${1001 + Number(count[0]!.n)}`
-      const total = items + o.shippingPoisha
-      await tx.execute({
-        sql: 'insert into orders values (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-        args: [
-          id,
-          number,
-          JSON.stringify(o.customer),
-          JSON.stringify(o.lines),
-          o.shippingPoisha,
-          total,
-          'confirmed',
-          o.paymentMethod,
-          o.note ?? null,
-          o.tags.join(','),
-          Date.now(),
-        ],
-      })
-      await tx.commit()
-      const stock = await db.execute({
-        sql: `select id, stock from variants where id in (${touched.map(() => '?').join(',') || "''"})`,
-        args: touched,
-      })
-      void notify(
-        stock.rows.map((r) => ({
-          type: 'stock',
-          variantExternalId: String(r.id),
-          stock: Number(r.stock),
-        })),
-      )
-      return c.json({
-        externalId: id,
-        number,
-        totalPoisha: total,
-        adminUrl: `${new URL(c.req.url).origin}/admin#${number}`,
-      })
+      const made = await placeOrder(input.data)
+      return c.json({ ...made, adminUrl: `${new URL(c.req.url).origin}/admin#${made.number}` })
     } catch (err) {
-      await tx.rollback()
       return c.json({ error: err instanceof Error ? err.message : String(err) }, 409)
-    } finally {
-      tx.close()
     }
+  })
+
+  api.get('/orders', async (c) => {
+    const since = Number(c.req.query('since') ?? 0)
+    const { rows } = await db.execute({
+      sql: 'select * from orders where created_at >= ? order by created_at',
+      args: [since],
+    })
+    return c.json({ orders: rows.map(storeOrder) })
+  })
+
+  api.get('/orders/:id', async (c) => {
+    const { rows } = await db.execute({
+      sql: 'select * from orders where id = ?',
+      args: [c.req.param('id')],
+    })
+    return rows[0] ? c.json(storeOrder(rows[0])) : c.json({ error: 'not found' }, 404)
   })
 
   api.patch('/orders/:id', async (c) => {
@@ -233,6 +279,38 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     cfg.saudaai?.publicKey
       ? { src: `${cfg.saudaai.url}/widget.js`, shop: cfg.saudaai.publicKey, product: productId }
       : null
+
+  // A shopper buying on the site itself, without SaudaAI: the order still reaches SaudaAI by webhook.
+  app.post('/checkout', async (c) => {
+    const f = await c.req.parseBody()
+    const text = (k: string) => String(f[k] ?? '').trim()
+    const qty = Number(f.qty)
+    if (!text('name') || !text('phone') || !text('address') || !Number.isInteger(qty) || qty < 1) {
+      return c.html(messagePage('Please fill in every field.'), 400)
+    }
+    try {
+      const made = await placeOrder({
+        customer: {
+          name: text('name'),
+          phone: text('phone'),
+          address: text('address'),
+          area: text('area') || undefined,
+        },
+        lines: [{ variantExternalId: text('variant'), qty }],
+        shippingPoisha: f.zone === 'outside' ? 12000 : 6000,
+        paymentMethod: f.payment === 'bkash' ? 'bkash' : 'cod',
+        tags: ['website'],
+      })
+      await notify([{ type: 'order.upsert', externalId: made.externalId, status: 'confirmed' }])
+      return c.html(
+        messagePage(
+          `Thank you! Order ${made.number} is placed, total ৳${(made.totalPoisha / 100).toLocaleString('en-IN')}. The shop will call you to confirm.`,
+        ),
+      )
+    } catch (err) {
+      return c.html(messagePage(err instanceof Error ? err.message : String(err)), 409)
+    }
+  })
 
   app.get('/', async (c) => c.html(shopPage(await loadProducts(db, "status = 'active'"), widget())))
 

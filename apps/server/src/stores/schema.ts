@@ -38,3 +38,32 @@ export const storeEvents = z.array(
     }),
   ]),
 )
+
+export const storeOrder = z.object({
+  externalId: z.string().min(1),
+  number: z.coerce.string(),
+  status: z.enum(['confirmed', 'shipped', 'delivered', 'cancelled']),
+  createdAt: z.number().int(),
+  customer: z.object({
+    name: z.string().min(1),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    address: z.string().optional(),
+    area: z.string().optional(),
+  }),
+  lines: z
+    .array(
+      z.object({
+        variantExternalId: z.string().min(1),
+        productExternalId: z.string().optional(),
+        qty: z.number().int().positive(),
+        unitPricePoisha: poisha,
+      }),
+    )
+    .min(1),
+  shippingPoisha: poisha,
+  totalPoisha: poisha,
+  paidPoisha: poisha,
+  paymentMethod: z.string().optional(),
+  adminUrl: z.string().optional(),
+})

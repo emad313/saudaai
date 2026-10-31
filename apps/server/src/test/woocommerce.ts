@@ -46,6 +46,8 @@ export function fakeWoo(opts: { currency?: string } = {}) {
       )
     }
     if (path === '/webhooks' && method === 'GET') return json([])
+    if (path === '/orders' && method === 'GET')
+      return json([fixture('order')], 200, { 'x-wp-totalpages': '1' })
     if (path === '/orders' && method === 'POST') return json(fixture('order'), 201)
     if (/^\/orders\/\d+$/.test(path) && method === 'GET') return json(fixture('order'))
     return json({ ok: true })

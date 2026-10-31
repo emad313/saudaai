@@ -6,7 +6,7 @@ import { fakeWoo, wooUrl } from '../test/woocommerce.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { testShop } from '../test/shop.ts'
 import { connectStore } from './index.ts'
-import { externalProduct } from './schema.ts'
+import { externalProduct, storeOrder } from './schema.ts'
 import type { StoreConnector } from './types.ts'
 
 type Setup = {
@@ -173,6 +173,20 @@ for (const [kind, make] of Object.entries(kinds)) {
         note: 'paid by bkash',
       })
       await connector.updateOrder(made.externalId, { status: 'cancelled' })
+    })
+
+    it('reads orders placed on the site', async () => {
+      await connector.createOrder({
+        customer: { name: 'Mitu Akter', phone: '01711000111', area: 'Mirpur' },
+        lines: [{ variantExternalId: setup.orderLine, qty: 1 }],
+        shippingPoisha: 6000,
+        paymentMethod: 'cod',
+        tags: ['saudaai'],
+      })
+      const { orders } = await connector.listOrders(Date.now() - 365 * 86_400_000)
+      expect(orders.length).toBeGreaterThan(0)
+      for (const o of orders) expect(() => storeOrder.parse(o)).not.toThrow()
+      expect(await connector.getOrder(orders[0]!.externalId)).toEqual(orders[0])
     })
 
     it('rejects a forged webhook', async () => {

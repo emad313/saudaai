@@ -5,10 +5,11 @@ import { orders, products } from '../db/schema.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { testShop } from '../test/shop.ts'
 import { createCustomer } from '../tools/customers.ts'
-import { createOrder, recordPayment, updateOrderStatus } from '../tools/orders.ts'
+import { createOrder, getOrder, recordPayment, updateOrderStatus } from '../tools/orders.ts'
 import { adjustStock, findProducts } from '../tools/products.ts'
 import { connectStore, storeFor } from './index.ts'
 import { applyEvents, pullStore } from './sync.ts'
+import type { StoreOrder } from './types.ts'
 
 let t: Awaited<ReturnType<typeof testShop>>
 let site: ReturnType<typeof fakeStore>
@@ -219,13 +220,80 @@ describe('store webhooks', () => {
       headers: { 'x-saudaai-signature': sign(raw) },
       raw,
     })
-    await applyEvents(t.db, row, events, t.ctx().now)
-    await applyEvents(t.db, row, events, t.ctx().now)
+    await applyEvents(t.db, row, connector!, events, t.ctx().now)
+    await applyEvents(t.db, row, connector!, events, t.ctx().now)
 
     expect((await variant('kurti', 'M')).available).toBe(9)
     const [tote] = await t.db.select().from(products).where(eq(products.externalId, 'p2'))
     expect(tote!.status).toBe('archived')
     const [o] = await t.db.select().from(orders).where(eq(orders.id, draft.orderId))
     expect(o).toMatchObject({ status: 'delivered', paymentStatus: 'paid', paidPoisha: 156000 })
+  })
+})
+
+describe('orders placed on the website', () => {
+  const placed = (overrides: Partial<StoreOrder> = {}): StoreOrder => ({
+    externalId: 'w1',
+    number: 'NC-2001',
+    status: 'confirmed',
+    createdAt: t.ctx().now - 60_000,
+    customer: { name: 'Sadia Islam', phone: '+8801722000333', address: 'Road 3', area: 'Mirpur' },
+    lines: [{ variantExternalId: 'v1', productExternalId: 'p1', qty: 2, unitPricePoisha: 150000 }],
+    shippingPoisha: 6000,
+    totalPoisha: 306000,
+    paidPoisha: 0,
+    paymentMethod: 'cod',
+    ...overrides,
+  })
+
+  it('imports a website order from its webhook, once', async () => {
+    const row = await connect()
+    site.siteOrders.push(placed())
+    const { connector } = await storeFor(t.db, t.shop.id)
+    const event = [{ type: 'order.upsert' as const, externalId: 'w1', status: 'confirmed' }]
+    const first = await applyEvents(t.db, row, connector!, event, t.ctx().now)
+    const again = await applyEvents(t.db, row, connector!, event, t.ctx().now)
+    expect(first).toHaveLength(1)
+    expect(again).toEqual([])
+
+    const order = await getOrder(t.ctx(), { orderId: first[0]!.orderId })
+    expect(order).toMatchObject({
+      status: 'confirmed',
+      externalNumber: 'NC-2001',
+      totalPoisha: 306000,
+      customer: { name: 'Sadia Islam', phone: '01722000333' },
+      lines: [{ product: 'Indigo Block Print Kurti', qty: 2 }],
+    })
+    const [o] = await t.db.select().from(orders).where(eq(orders.id, first[0]!.orderId))
+    expect(o).toMatchObject({ source: 'store', subtotalPoisha: 300000, deliveryPoisha: 6000 })
+  })
+
+  it('matches a returning customer by phone and records what the store says was paid', async () => {
+    const row = await connect()
+    const known = await createCustomer(t.ctx(), {
+      name: 'Sadia',
+      phone: '01722000333',
+      area: 'Mirpur',
+    })
+    site.siteOrders.push(placed({ paidPoisha: 306000 }))
+    const { connector } = await storeFor(t.db, t.shop.id)
+    const [made] = await applyEvents(
+      t.db,
+      row,
+      connector!,
+      [{ type: 'order.upsert', externalId: 'w1', status: 'confirmed' }],
+      t.ctx().now,
+    )
+    const order = await getOrder(t.ctx(), { orderId: made!.orderId })
+    expect(order.customer.customerId).toBe(known.customerId)
+    expect(order).toMatchObject({ paymentStatus: 'paid', duePoisha: 0 })
+  })
+
+  it('picks up website orders on a full sync', async () => {
+    const row = await connect()
+    site.siteOrders.push(placed(), placed({ externalId: 'w2', number: 'NC-2002' }))
+    const { connector } = await storeFor(t.db, t.shop.id)
+    expect(await pullStore(t.db, row, connector!, t.ctx().now)).toMatchObject({ ordersImported: 2 })
+    expect(await pullStore(t.db, row, connector!, t.ctx().now)).toMatchObject({ ordersImported: 0 })
   })
 })

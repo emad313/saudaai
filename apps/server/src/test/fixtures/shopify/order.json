@@ -1,0 +1,32 @@
+{
+  "id": "gid://shopify/Order/6001",
+  "name": "#1002",
+  "createdAt": "2026-10-30T10:15:00Z",
+  "cancelledAt": null,
+  "displayFinancialStatus": "PENDING",
+  "displayFulfillmentStatus": "UNFULFILLED",
+  "tags": [],
+  "totalPriceSet": { "shopMoney": { "amount": "3120.0" } },
+  "totalReceivedSet": { "shopMoney": { "amount": "0.0" } },
+  "totalShippingPriceSet": { "shopMoney": { "amount": "120.0" } },
+  "paymentGatewayNames": ["Cash on Delivery (COD)"],
+  "customer": { "displayName": "Sadia Islam", "phone": "+8801722000333", "email": null },
+  "shippingAddress": {
+    "name": "Sadia Islam",
+    "address1": "Agrabad, Road 3",
+    "city": "Chattogram",
+    "phone": "+8801722000333"
+  },
+  "lineItems": {
+    "nodes": [
+      {
+        "quantity": 2,
+        "originalUnitPriceSet": { "shopMoney": { "amount": "1500.0" } },
+        "variant": {
+          "id": "gid://shopify/ProductVariant/9001",
+          "product": { "id": "gid://shopify/Product/8001" }
+        }
+      }
+    ]
+  }
+}

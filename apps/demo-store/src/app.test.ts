@@ -124,6 +124,45 @@ describe('store api', () => {
     })
   })
 
+  it('sends a website checkout to saudaai as an order event and lists it with prices', async () => {
+    const form = new URLSearchParams({
+      variant: 'green-threepiece-l',
+      qty: '1',
+      name: 'Sadia Islam',
+      phone: '01722000333',
+      address: 'Agrabad Road 3',
+      area: 'Chattogram',
+      zone: 'outside',
+      payment: 'cod',
+    })
+    const res = await app.request('/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form,
+    })
+    expect(await res.text()).toContain('NC-1001')
+    await vi.waitFor(() => expect(hooks.length).toBeGreaterThanOrEqual(2))
+    const events = hooks.flatMap((h) => JSON.parse(h.body))
+    const placed = events.find((e: { type: string }) => e.type === 'order.upsert')
+    expect(placed).toMatchObject({ status: 'confirmed' })
+
+    const listed = (await (await get('/saudaai/orders?since=0')).json()) as {
+      orders: { externalId: string; totalPoisha: number; lines: unknown[] }[]
+    }
+    expect(listed.orders[0]).toMatchObject({
+      externalId: placed.externalId,
+      totalPoisha: 185000 + 12000,
+      lines: [
+        {
+          variantExternalId: 'green-threepiece-l',
+          productExternalId: 'green-threepiece',
+          qty: 1,
+          unitPricePoisha: 185000,
+        },
+      ],
+    })
+  })
+
   it('renders the site with the widget for the product being viewed', async () => {
     const withWidget = createStoreApp(await openDb(':memory:'), {
       token: 'store-token-1',

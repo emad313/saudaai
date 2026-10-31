@@ -54,6 +54,11 @@ function page(title: string, body: string, widget: Widget) {
   table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 14px; }
   input { width: 80px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
+  .buy { display: grid; gap: 10px; margin: 16px 0; max-width: 460px; }
+  .buy label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  .buy input, .buy select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: var(--night); background: #fff; }
+  .buy .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .buy button { padding: 11px; font-size: 15px; font-weight: 600; border-radius: 8px; }
   button { background: var(--ink); color: #fff; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
 </style>
 </head>
@@ -79,6 +84,13 @@ export function shopPage(products: Product[], widget: Widget) {
 }
 
 export function productPage(p: Product, widget: Widget) {
+  const options = p.variants
+    .filter((v) => v.stock === null || v.stock > 0)
+    .map(
+      (v) =>
+        `<option value="${esc(v.id)}">${esc([v.size, v.color].filter(Boolean).join(' / ') || 'One size')} - ${taka(v.pricePoisha)}</option>`,
+    )
+    .join('')
   const chips = p.variants
     .map((v) => {
       const label = [v.size, v.color].filter(Boolean).join(' / ') || 'One size'
@@ -94,7 +106,22 @@ export function productPage(p: Product, widget: Widget) {
       <div class="price" style="font-size:22px">${taka(priceOf(p))}</div>
       <p>${esc(p.description)}</p>
       <div class="chips">${chips}</div>
-      <p class="ask">To order, ask in the chat: size, delivery charge, bKash or cash on delivery. Bangla, Banglish or English, text or voice.</p>
+      <form class="buy" method="post" action="/checkout">
+        <div class="pair">
+          <label>Size / colour<select name="variant" required>${options}</select></label>
+          <label>Quantity<input name="qty" type="number" min="1" value="1" required></label>
+        </div>
+        <label>Name<input name="name" autocomplete="name" required></label>
+        <label>Mobile<input name="phone" inputmode="tel" autocomplete="tel" required></label>
+        <label>Address<input name="address" autocomplete="street-address" required></label>
+        <div class="pair">
+          <label>Area<input name="area" placeholder="Mirpur, Chattogram"></label>
+          <label>Delivery<select name="zone"><option value="inside">Inside Dhaka ৳60</option><option value="outside">Outside Dhaka ৳120</option></select></label>
+        </div>
+        <label>Payment<select name="payment"><option value="cod">Cash on delivery</option><option value="bkash">bKash</option></select></label>
+        <button>Order now</button>
+      </form>
+      <p class="ask">Questions first? Ask in the chat at the bottom right, in Bangla, Banglish or English, by text or voice.</p>
     </div></div>`,
     widget,
   )
@@ -126,6 +153,14 @@ export function adminPage(products: Product[], orders: Record<string, unknown>[]
     `<h2>Orders</h2><table><tr><th>Order</th><th>Customer</th><th>Total</th><th>Paid</th><th>Status</th><th>Tags</th></tr>${list || '<tr><td colspan="6">No orders yet.</td></tr>'}</table>
     <h2>Price and stock</h2><p class="note">Saving sends the change to SaudaAI right away.</p>
     <table><tr><th>Product</th><th>Variant</th><th colspan="2">Price, stock</th></tr>${rows}</table>`,
+    null,
+  )
+}
+
+export function messagePage(text: string) {
+  return page(
+    "Nusrat's Closet",
+    `<div class="detail" style="display:block"><p style="font-size:17px;margin:0">${esc(text)}</p><p><a class="note" href="/">Back to the shop</a></p></div>`,
     null,
   )
 }

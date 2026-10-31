@@ -7,6 +7,7 @@ import {
   type ExternalVariant,
   type StoreConnector,
   type StoreEvent,
+  type StoreOrder,
 } from './types.ts'
 
 const version = '2025-01'
@@ -55,6 +56,83 @@ function fromGql(p: GqlProduct): ExternalProduct {
       pricePoisha: poisha(v.price),
       stock: v.inventoryItem.tracked ? (v.inventoryQuantity ?? 0) : null,
     })),
+  }
+}
+
+type Money = { shopMoney: { amount: string } } | null
+type GqlOrder = {
+  id: string
+  name: string
+  createdAt: string
+  cancelledAt: string | null
+  displayFinancialStatus: string | null
+  displayFulfillmentStatus: string
+  tags: string[]
+  totalPriceSet: Money
+  totalReceivedSet: Money
+  totalShippingPriceSet: Money
+  paymentGatewayNames: string[]
+  customer: { displayName: string; phone: string | null; email: string | null } | null
+  shippingAddress: {
+    name: string | null
+    address1: string | null
+    city: string | null
+    phone: string | null
+  } | null
+  lineItems: {
+    nodes: {
+      quantity: number
+      originalUnitPriceSet: Money
+      variant: { id: string; product: { id: string } } | null
+    }[]
+  }
+}
+
+const orderFields = `id name createdAt cancelledAt displayFinancialStatus displayFulfillmentStatus tags
+  totalPriceSet { shopMoney { amount } } totalReceivedSet { shopMoney { amount } } totalShippingPriceSet { shopMoney { amount } }
+  paymentGatewayNames customer { displayName phone email } shippingAddress { name address1 city phone }
+  lineItems(first: 100) { nodes { quantity originalUnitPriceSet { shopMoney { amount } } variant { id product { id } } } }`
+
+const money = (m: Money) => poisha(m?.shopMoney.amount ?? '0')
+
+function fromGqlOrder(o: GqlOrder, domain: string): StoreOrder {
+  const total = money(o.totalPriceSet)
+  const paid =
+    o.displayFinancialStatus === 'PAID' ? total : Math.min(money(o.totalReceivedSet), total)
+  const ship = o.shippingAddress
+  return {
+    externalId: o.id,
+    number: o.name,
+    status: o.cancelledAt
+      ? 'cancelled'
+      : o.tags.includes('delivered')
+        ? 'delivered'
+        : o.displayFulfillmentStatus === 'FULFILLED'
+          ? 'shipped'
+          : 'confirmed',
+    createdAt: Date.parse(o.createdAt),
+    customer: {
+      name: o.customer?.displayName || ship?.name || 'Customer',
+      phone: o.customer?.phone ?? ship?.phone ?? undefined,
+      email: o.customer?.email ?? undefined,
+      address: ship?.address1 ?? undefined,
+      area: ship?.city ?? undefined,
+    },
+    lines: o.lineItems.nodes
+      .filter((l) => l.variant)
+      .map((l) => ({
+        variantExternalId: l.variant!.id,
+        productExternalId: l.variant!.product.id,
+        qty: l.quantity,
+        unitPricePoisha: money(l.originalUnitPriceSet),
+      })),
+    shippingPoisha: money(o.totalShippingPriceSet),
+    totalPoisha: total,
+    paidPoisha: paid,
+    paymentMethod: /cash|cod/i.test(o.paymentGatewayNames.join(' '))
+      ? 'cod'
+      : o.paymentGatewayNames[0],
+    adminUrl: `https://${domain}/admin/orders/${o.id.split('/').pop()}`,
   }
 }
 
@@ -320,6 +398,28 @@ export function shopifyConnector(
         }
       }
       if (change.note) await addNote(externalId, change.note)
+    },
+
+    async getOrder(externalId) {
+      const data = await gql<{ order: GqlOrder | null }>(
+        `query($id: ID!) { order(id: $id) { ${orderFields} } }`,
+        { id: externalId },
+      )
+      return data.order ? fromGqlOrder(data.order, domain) : null
+    },
+
+    async listOrders(since, cursor) {
+      const data = await gql<{
+        orders: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: GqlOrder[] }
+      }>(
+        `query($cursor: String, $q: String) { orders(first: 50, after: $cursor, query: $q, sortKey: CREATED_AT) { pageInfo { hasNextPage endCursor } nodes { ${orderFields} } } }`,
+        { cursor: cursor ?? null, q: `created_at:>='${new Date(since).toISOString()}'` },
+      )
+      const { pageInfo, nodes } = data.orders
+      return {
+        orders: nodes.map((o) => fromGqlOrder(o, domain)).filter((o) => o.lines.length),
+        next: pageInfo.hasNextPage ? (pageInfo.endCursor ?? undefined) : undefined,
+      }
     },
 
     async adjustStock(variantExternalId, delta) {

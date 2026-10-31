@@ -1,3 +1,4 @@
+import { formatTaka } from '@saudaai/shared'
 import { eq } from 'drizzle-orm'
 import { webhookCallback } from 'grammy'
 import { Hono } from 'hono'
@@ -56,7 +57,7 @@ export function metaInbound(raw: string, shopId: string): InboundMessage[] {
   return []
 }
 
-export function webhookRoutes(services: Pick<Services, 'db' | 'inbox' | 'telegram'>) {
+export function webhookRoutes(services: Pick<Services, 'db' | 'deps' | 'inbox' | 'telegram'>) {
   const app = new Hono()
   const shopId = channelShop(services.db)
   const names = new Map<string, string | null>()
@@ -107,7 +108,16 @@ export function webhookRoutes(services: Pick<Services, 'db' | 'inbox' | 'telegra
     )
     try {
       const events = await connector.parseWebhook({ headers, raw })
-      await applyEvents(services.db, row, events, Date.now())
+      const imported = await applyEvents(services.db, row, connector, events, Date.now())
+      if (imported.length) {
+        const [shop] = await services.db.select().from(shops).where(eq(shops.id, row.shopId))
+        for (const o of imported) {
+          await services.deps.seller.notify(
+            shop!,
+            `New website order ${o.externalNumber} (#${o.number}), ${formatTaka(o.totalPoisha)}`,
+          )
+        }
+      }
       return c.json({ ok: true, applied: events.length })
     } catch (err) {
       if (err instanceof StoreError && err.status === 401) return c.text('bad signature', 401)
