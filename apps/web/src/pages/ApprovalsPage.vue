@@ -24,40 +24,36 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <template>
-  <h1 class="text-2xl font-semibold">Approvals</h1>
-  <p class="mt-1 text-muted">
+  <h1 class="page-title">Approvals</h1>
+  <p class="mt-2 max-w-2xl text-muted">
     Anything that commits the shop or touches money waits here and on Telegram until you decide.
   </p>
-  <div class="mt-5 flex gap-2" role="tablist">
+  <div class="mt-6 inline-flex rounded-xl border border-line bg-white p-1" role="tablist">
     <button
+      v-for="t in ['waiting', 'decided'] as const"
+      :key="t"
       role="tab"
-      :aria-selected="tab === 'waiting'"
-      :class="tab === 'waiting' ? 'btn-primary' : 'btn-quiet'"
-      @click="tab = 'waiting'"
+      :aria-selected="tab === t"
+      class="rounded-lg px-4 py-1.5 text-sm font-medium capitalize transition-colors"
+      :class="tab === t ? 'bg-ink text-white' : 'text-muted hover:text-ink'"
+      @click="tab = t"
     >
-      Waiting
-    </button>
-    <button
-      role="tab"
-      :aria-selected="tab === 'decided'"
-      :class="tab === 'decided' ? 'btn-primary' : 'btn-quiet'"
-      @click="tab = 'decided'"
-    >
-      Decided
+      {{ t }}
     </button>
   </div>
-  <div v-if="tab === 'waiting'" class="mt-5 flex flex-col gap-3">
+  <div v-if="tab === 'waiting'" class="mt-6 grid gap-3 lg:grid-cols-2">
     <ApprovalSlip v-for="p in items" :key="p.id" :item="p" @decided="load" />
-    <p v-if="!items.length" class="py-10 text-center text-muted">
+    <p v-if="!items.length" class="panel empty lg:col-span-2">
       Nothing is waiting. New requests from the assistant show up here.
     </p>
   </div>
-  <ul v-else class="mt-5">
-    <li v-for="p in items" :key="p.id" class="ledger-row items-start">
-      <span class="min-w-0 whitespace-pre-wrap">{{ p.preview }}</span>
-      <span class="shrink-0 text-right text-sm text-muted"
-        ><StatusText :status="p.status" /><br />{{ when(p.decidedAt ?? p.createdAt) }}</span
+  <div v-else class="panel mt-6">
+    <div v-for="p in items" :key="p.id" class="row items-start">
+      <span class="min-w-0 leading-relaxed whitespace-pre-wrap">{{ p.preview }}</span>
+      <span class="flex shrink-0 flex-col items-end gap-1 text-sm text-muted"
+        ><StatusText :status="p.status" />{{ when(p.decidedAt ?? p.createdAt) }}</span
       >
-    </li>
-  </ul>
+    </div>
+    <p v-if="!items.length" class="empty">Nothing decided yet.</p>
+  </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api.ts'
+import AppIcon from '../components/AppIcon.vue'
 import { when } from '../format.ts'
 import type { Activity } from '../types.ts'
 
@@ -23,57 +24,78 @@ const turns = computed(() => {
 })
 
 const decision: Record<string, string> = {
-  run: 'text-leaf',
-  pending: 'text-marigold',
-  reject: 'text-khata',
-  invalid: 'text-khata',
-  error: 'text-khata',
+  run: 'bg-good/10 text-good',
+  pending: 'bg-warn/10 text-warn',
+  reject: 'bg-bad/10 text-bad',
+  invalid: 'bg-bad/10 text-bad',
+  error: 'bg-bad/10 text-bad',
 }
 const label: Record<string, string> = {
-  run: 'done',
-  pending: 'sent for approval',
-  reject: 'refused',
-  invalid: 'bad input',
-  error: 'failed',
+  run: 'Done',
+  pending: 'Sent for approval',
+  reject: 'Refused',
+  invalid: 'Bad input',
+  error: 'Failed',
+}
+const actor: Record<string, string> = {
+  customer: 'Customer chat',
+  system: 'Scheduled job',
+  seller: 'Seller',
 }
 const pretty = (v: unknown) => JSON.stringify(v, null, 2)
 </script>
 
 <template>
-  <h1 class="text-2xl font-semibold">Agent log</h1>
-  <p class="mt-1 max-w-2xl text-muted">
+  <h1 class="page-title">Agent log</h1>
+  <p class="mt-2 max-w-2xl text-muted">
     Every step the assistant took: which tool it chose, what it passed, what the shop's code decided
     and returned.
   </p>
-  <section v-for="t in turns" :key="t.id" class="mt-6">
-    <h2 class="text-sm text-muted">
-      {{
-        t.actor === 'customer'
-          ? 'Customer chat'
-          : t.actor === 'system'
-            ? 'Scheduled job'
-            : 'Seller'
-      }}, {{ when(t.at) }}
-    </h2>
-    <ol class="mt-1 border-l-2 border-rule">
-      <li v-for="s in t.steps" :key="s.id" class="relative py-1.5 pl-4">
-        <button
-          class="flex w-full flex-wrap items-baseline gap-x-3 text-left"
-          :aria-expanded="open === s.id"
-          @click="open = open === s.id ? null : s.id"
-        >
-          <code class="text-[15px] font-medium">{{ s.tool }}</code>
-          <span class="text-sm" :class="decision[s.decision]">{{ label[s.decision] }}</span>
-          <span class="text-xs text-muted">{{ s.latencyMs }} ms</span>
-        </button>
-        <div v-if="open === s.id" class="mt-2 grid gap-2 text-xs md:grid-cols-2">
-          <pre class="overflow-x-auto bg-white p-2">{{ pretty(s.args) }}</pre>
-          <pre class="overflow-x-auto bg-white p-2">{{ pretty(s.result) }}</pre>
-        </div>
-      </li>
-    </ol>
-  </section>
-  <p v-if="!turns.length" class="py-10 text-center text-muted">
-    Nothing yet. Steps appear here as soon as the assistant handles a message.
-  </p>
+  <div class="mt-6 flex flex-col gap-4">
+    <section v-for="t in turns" :key="t.id" class="panel overflow-hidden">
+      <h2 class="flex items-center justify-between border-b border-line px-5 py-3 text-sm">
+        <span class="font-medium">{{ actor[t.actor] ?? 'Seller' }}</span>
+        <span class="text-muted">{{ when(t.at) }}</span>
+      </h2>
+      <ol>
+        <li v-for="s in t.steps" :key="s.id" class="border-b border-line last:border-b-0">
+          <button
+            class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-left hover:bg-sky/50"
+            :aria-expanded="open === s.id"
+            @click="open = open === s.id ? null : s.id"
+          >
+            <span class="w-5 text-sm text-muted">{{ s.step }}</span>
+            <code class="text-[15px] font-medium text-night">{{ s.tool }}</code>
+            <span
+              class="rounded-full px-2.5 text-xs leading-6 font-medium"
+              :class="decision[s.decision]"
+              >{{ label[s.decision] }}</span
+            >
+            <span class="ml-auto flex items-center gap-2 text-xs text-muted"
+              >{{ s.latencyMs }} ms
+              <span class="transition-transform" :class="open === s.id && 'rotate-90'"
+                ><AppIcon name="next" /></span
+            ></span>
+          </button>
+          <div v-if="open === s.id" class="grid gap-3 px-5 pb-4 text-xs md:grid-cols-2">
+            <div>
+              <p class="mb-1 text-muted">Input</p>
+              <pre class="overflow-x-auto rounded-xl bg-night p-3 text-white/90">{{
+                pretty(s.args)
+              }}</pre>
+            </div>
+            <div>
+              <p class="mb-1 text-muted">Result</p>
+              <pre class="overflow-x-auto rounded-xl bg-night p-3 text-white/90">{{
+                pretty(s.result)
+              }}</pre>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </section>
+    <p v-if="!turns.length" class="panel empty">
+      Nothing yet. Steps appear here as soon as the assistant handles a message.
+    </p>
+  </div>
 </template>

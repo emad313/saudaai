@@ -2,6 +2,7 @@
 import { formatTaka } from '@saudaai/shared'
 import { onMounted, ref } from 'vue'
 import { api, send } from '../api.ts'
+import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
 import { useSession } from '../stores/session.ts'
 import type { ProductRow } from '../types.ts'
@@ -35,74 +36,88 @@ onMounted(load)
 </script>
 
 <template>
-  <h1 class="text-2xl font-semibold">Catalog</h1>
-  <p class="mt-1 text-muted">
-    Send a product photo to the bot with the price and sizes to add something new.
+  <h1 class="page-title">Catalog</h1>
+  <p class="mt-2 max-w-2xl text-muted">
+    Send a product photo to the bot with the price and sizes to add something new. Numbers show what
+    is free to sell; +n is held by open orders.
   </p>
-  <p v-if="error" class="mt-3 text-sm text-khata">{{ error }}</p>
-  <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-    <article v-for="p in products" :key="p.id" class="flex flex-col bg-white">
-      <img
-        v-if="p.imageUrl"
-        :src="p.imageUrl"
-        :alt="p.name"
-        class="aspect-square w-full object-cover"
-      />
-      <div
-        v-else
-        class="flex aspect-square items-center justify-center bg-rule/40 font-ledger text-4xl text-muted"
-      >
-        {{ p.name.slice(0, 1) }}
+  <p v-if="error" class="mt-3 text-sm text-bad">{{ error }}</p>
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <article v-for="p in products" :key="p.id" class="panel flex flex-col overflow-hidden">
+      <div class="relative">
+        <img
+          v-if="p.imageUrl"
+          :src="p.imageUrl"
+          :alt="p.name"
+          class="aspect-[4/3] w-full bg-cloud object-cover"
+        />
+        <div
+          v-else
+          class="grid aspect-[4/3] place-items-center bg-sky text-5xl font-semibold text-ink/40"
+        >
+          {{ p.name.slice(0, 1) }}
+        </div>
+        <span v-if="p.status !== 'active'" class="absolute top-3 left-3 rounded-full bg-white">
+          <StatusText :status="p.status" />
+        </span>
       </div>
       <div class="flex flex-1 flex-col p-4">
-        <div class="flex items-baseline justify-between gap-2">
-          <h2 class="font-medium">{{ p.name }}</h2>
-          <StatusText v-if="p.status !== 'active'" :status="p.status" />
+        <div class="flex items-start justify-between gap-3">
+          <h2 class="font-medium leading-snug">{{ p.name }}</h2>
+          <span class="shrink-0 font-semibold text-ink">{{ formatTaka(p.pricePoisha) }}</span>
         </div>
-        <div class="font-ledger text-xl">{{ formatTaka(p.pricePoisha) }}</div>
-        <ul class="mt-3">
+        <ul class="mt-3 flex flex-col gap-1">
           <li
             v-for="v in p.variants"
             :key="v.id"
-            class="flex items-center justify-between border-t border-rule py-1.5 text-sm"
+            class="flex items-center justify-between rounded-lg bg-cloud px-3 py-1.5 text-sm"
           >
             <span>{{ label(v) }}</span>
-            <span class="flex items-center gap-2">
+            <span class="flex items-center gap-1">
               <button
                 v-if="!session.me?.readonly"
-                class="size-7 rounded border border-rule"
+                class="grid size-7 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"
                 :aria-label="`One less ${label(v)}`"
                 @click="stock(v.id, -1)"
               >
-                −
+                <AppIcon name="minus" />
               </button>
-              <span class="w-16 text-center" :class="v.stock - v.reserved <= 2 && 'text-khata'"
+              <span
+                class="w-14 text-center font-medium"
+                :class="v.stock - v.reserved <= 2 && 'text-bad'"
                 >{{ v.stock - v.reserved
-                }}<span v-if="v.reserved" class="text-muted"> +{{ v.reserved }}</span></span
+                }}<span v-if="v.reserved" class="font-normal text-muted">
+                  +{{ v.reserved }}</span
+                ></span
               >
               <button
                 v-if="!session.me?.readonly"
-                class="size-7 rounded border border-rule"
+                class="grid size-7 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"
                 :aria-label="`One more ${label(v)}`"
                 @click="stock(v.id, 1)"
               >
-                +
+                <AppIcon name="plus" />
               </button>
             </span>
           </li>
         </ul>
-        <div v-if="!session.me?.readonly" class="mt-auto flex gap-2 pt-3">
-          <button v-if="p.status === 'draft'" class="btn-primary" @click="status(p.id, 'active')">
+        <div v-if="!session.me?.readonly" class="mt-auto flex gap-2 pt-4">
+          <button
+            v-if="p.status === 'draft'"
+            class="btn-primary w-full"
+            @click="status(p.id, 'active')"
+          >
             Publish
           </button>
-          <button v-if="p.status === 'active'" class="btn-quiet" @click="status(p.id, 'archived')">
-            Hide
+          <button
+            v-if="p.status === 'active'"
+            class="btn-ghost w-full"
+            @click="status(p.id, 'archived')"
+          >
+            Hide from shop
           </button>
         </div>
       </div>
     </article>
   </div>
-  <p class="mt-4 text-sm text-muted">
-    Numbers show what is free to sell; +n is held by open orders.
-  </p>
 </template>

@@ -82,7 +82,7 @@ apps/web        seller dashboard and public shop page (Vue 3, Tailwind)
 packages/shared money helpers and request schemas used by both
 ```
 
-Server: Hono, grammY, Drizzle on SQLite (libSQL), zod, p-queue, croner, sharp, Playwright. Web: Vue 3, Vite, Pinia, Tailwind CSS, Tiro Bangla and Hind Siliguri.
+Server: Hono, grammY, Drizzle on SQLite (libSQL), zod, p-queue, croner, sharp, Playwright. Web: Vue 3, Vite, Pinia, Tailwind CSS, Inter and Anek Bangla.
 
 ## Running locally
 

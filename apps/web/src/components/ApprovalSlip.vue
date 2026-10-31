@@ -49,25 +49,25 @@ async function decide(action: 'approve' | 'cancel') {
 </script>
 
 <template>
-  <article
-    class="border-l-4 border-khata bg-white py-3 pr-3 pl-4 shadow-[0_1px_0_var(--color-rule)]"
-  >
-    <div class="flex items-baseline justify-between gap-3 text-sm text-muted">
-      <span class="font-medium text-ink">{{ kind[item.tool] ?? item.tool }}</span>
-      <span>{{ when(item.createdAt) }}</span>
+  <article class="panel p-4 md:p-5">
+    <div class="flex items-center justify-between gap-3">
+      <span class="rounded-full bg-sky px-2.5 text-xs leading-6 font-medium text-ink">{{
+        kind[item.tool] ?? item.tool
+      }}</span>
+      <span class="text-sm text-muted">{{ when(item.createdAt) }}</span>
     </div>
-    <p v-if="!editing" class="mt-1.5 whitespace-pre-wrap">{{ item.preview }}</p>
+    <p v-if="!editing" class="mt-3 leading-relaxed whitespace-pre-wrap">{{ item.preview }}</p>
     <textarea
       v-else
       v-model="text"
       rows="4"
-      class="field mt-2 py-2"
+      class="field mt-3 py-2.5"
       aria-label="Reply text"
     ></textarea>
-    <p v-if="error" class="mt-2 text-sm text-khata">{{ error }}</p>
+    <p v-if="error" class="mt-2 text-sm text-bad">{{ error }}</p>
     <div
       v-if="item.status === 'pending' && !session.me?.readonly"
-      class="mt-3 flex flex-wrap gap-2"
+      class="mt-4 flex flex-wrap gap-2"
     >
       <button class="btn-primary" :disabled="busy" @click="decide('approve')">
         {{ editing ? 'Send edited reply' : 'Approve' }}
@@ -80,7 +80,7 @@ async function decide(action: 'approve' | 'cancel') {
       >
         Edit
       </button>
-      <button class="btn-quiet" :disabled="busy" @click="decide('cancel')">Cancel</button>
+      <button class="btn-ghost" :disabled="busy" @click="decide('cancel')">Cancel</button>
     </div>
   </article>
 </template>

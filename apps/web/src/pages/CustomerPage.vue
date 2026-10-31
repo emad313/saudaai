@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api.ts'
+import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
 import { channelName, when } from '../format.ts'
 import type { OrderRow } from '../types.ts'
@@ -27,36 +28,47 @@ onMounted(async () => {
 
 <template>
   <div v-if="data">
-    <RouterLink to="/customers" class="text-sm text-khata underline">Customers</RouterLink>
-    <h1 class="mt-2 text-2xl font-semibold">{{ data.customer.name }}</h1>
-    <p class="text-muted">
-      {{
-        [data.customer.phone, data.customer.address ?? data.customer.area]
-          .filter(Boolean)
-          .join(', ')
-      }}
-    </p>
-    <div v-if="data.chats.length" class="mt-3 flex flex-wrap gap-2">
+    <RouterLink to="/customers" class="back-link"><AppIcon name="back" />Customers</RouterLink>
+    <div class="mt-4 flex flex-wrap items-center gap-4">
+      <span
+        class="grid size-16 shrink-0 place-items-center rounded-2xl bg-ink text-2xl font-semibold text-white"
+        >{{ data.customer.name.slice(0, 1) }}</span
+      >
+      <div class="min-w-0">
+        <h1 class="page-title">{{ data.customer.name }}</h1>
+        <p class="mt-1 text-muted">
+          {{
+            [data.customer.phone, data.customer.address ?? data.customer.area]
+              .filter(Boolean)
+              .join(', ')
+          }}
+        </p>
+      </div>
+    </div>
+    <div v-if="data.chats.length" class="mt-5 flex flex-wrap gap-2">
       <RouterLink v-for="c in data.chats" :key="c.id" :to="`/inbox/${c.id}`" class="btn-quiet"
-        >Chat on {{ channelName[c.channel] }}</RouterLink
+        ><AppIcon name="chat" />Chat on {{ channelName[c.channel] }}</RouterLink
       >
     </div>
-    <h2 class="mt-8 font-semibold">Orders</h2>
-    <RouterLink
-      v-for="o in data.orders"
-      :key="o.orderId"
-      :to="`/orders/${o.orderId}`"
-      class="ledger-row hover:bg-white"
-    >
-      <span class="flex items-baseline gap-3"
-        ><span class="font-ledger">#{{ o.number }}</span
-        ><StatusText :status="o.status" /><StatusText :status="o.paymentStatus"
-      /></span>
-      <span class="text-right"
-        ><span class="font-ledger">{{ o.total }}</span
-        ><span class="ml-3 text-sm text-muted">{{ when(o.createdAt) }}</span></span
+    <h2 class="mt-8 text-xl font-semibold">Orders</h2>
+    <div class="panel mt-3 overflow-hidden">
+      <RouterLink
+        v-for="o in data.orders"
+        :key="o.orderId"
+        :to="`/orders/${o.orderId}`"
+        class="row-link"
       >
-    </RouterLink>
-    <p v-if="!data.orders.length" class="py-6 text-muted">No orders yet.</p>
+        <span class="flex min-w-0 flex-wrap items-center gap-2.5">
+          <span class="w-14 text-sm font-semibold text-muted">#{{ o.number }}</span>
+          <StatusText :status="o.status" />
+          <StatusText :status="o.paymentStatus" />
+        </span>
+        <span class="shrink-0 text-right">
+          <span class="block font-semibold">{{ o.total }}</span>
+          <span class="block text-xs text-muted">{{ when(o.createdAt) }}</span>
+        </span>
+      </RouterLink>
+      <p v-if="!data.orders.length" class="empty">No orders yet.</p>
+    </div>
   </div>
 </template>

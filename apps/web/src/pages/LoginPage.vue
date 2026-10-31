@@ -27,22 +27,25 @@ async function submit() {
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col md:flex-row">
+  <main class="flex min-h-screen flex-col bg-white md:flex-row">
     <section
-      class="flex flex-col justify-end bg-khata px-6 pt-16 pb-10 text-white md:w-[44%] md:px-14 md:pb-16"
+      class="relative flex flex-col justify-between overflow-hidden bg-ink px-6 pt-10 pb-10 text-white md:w-[46%] md:px-14 md:py-14"
     >
-      <p class="font-ledger text-5xl leading-tight md:text-6xl">সওদা</p>
-      <p class="mt-4 max-w-sm text-lg text-white/85">
-        The back office for shops that run on Facebook and WhatsApp. Talk to it in Bangla; it keeps
-        the khata.
-      </p>
+      <span class="font-semibold">SaudaAI</span>
+      <div class="mt-16 md:mt-0">
+        <p class="text-7xl leading-none font-semibold md:text-8xl">সওদা</p>
+        <p class="mt-6 max-w-sm text-lg leading-relaxed text-white/80">
+          The back office for shops that run on Facebook and WhatsApp. Talk to it in Bangla, and it
+          keeps the khata for you.
+        </p>
+      </div>
     </section>
-    <section class="flex flex-1 items-center px-6 py-12 md:px-16">
+    <section class="flex flex-1 items-center justify-center px-6 py-12 md:px-16">
       <form class="w-full max-w-sm" @submit.prevent="submit">
-        <h1 class="text-2xl font-semibold">Log in</h1>
-        <p class="mt-2 text-muted">
-          Send <b class="text-ink">/login</b> to your SaudaAI bot on Telegram and type the code it
-          gives you.
+        <h1 class="page-title">Log in</h1>
+        <p class="mt-3 leading-relaxed text-muted">
+          Send <b class="font-semibold text-night">/login</b> to your SaudaAI bot on Telegram, then
+          type the 6-digit code it gives you.
         </p>
         <label class="mt-8 block text-sm font-medium" for="code">Code</label>
         <input
@@ -51,15 +54,18 @@ async function submit() {
           inputmode="numeric"
           autocomplete="one-time-code"
           maxlength="6"
-          class="field mt-1 h-14 text-center font-ledger text-3xl tracking-[0.4em]"
+          class="field mt-2 h-16 text-center text-3xl font-semibold tracking-[0.35em]"
         />
-        <p v-if="error" class="mt-2 text-sm text-khata">{{ error }}</p>
-        <button class="btn-primary mt-5 w-full" :disabled="busy || code.length !== 6">
+        <p v-if="error" class="mt-2 text-sm text-bad">{{ error }}</p>
+        <button
+          class="btn-primary mt-5 min-h-12 w-full text-base"
+          :disabled="busy || code.length !== 6"
+        >
           Log in
         </button>
         <p class="mt-10 text-sm text-muted">
           Just looking?
-          <RouterLink to="/s/nusrats-closet" class="text-khata underline"
+          <RouterLink to="/s/nusrats-closet" class="font-medium text-ink hover:underline"
             >Chat with the demo shop</RouterLink
           >
           as a customer.

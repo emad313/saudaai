@@ -3,6 +3,7 @@ import { formatTaka } from '@saudaai/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, send } from '../api.ts'
+import AppIcon from '../components/AppIcon.vue'
 
 type Variant = {
   id: string
@@ -199,15 +200,26 @@ onBeforeUnmount(() => stream?.close())
 </script>
 
 <template>
-  <div v-if="shop" class="min-h-screen bg-paper lg:grid lg:grid-cols-[1fr_400px]">
-    <main class="pb-28 lg:pb-10">
-      <header class="bg-khata px-5 pt-10 pb-6 text-white md:px-10">
-        <h1 class="font-ledger text-4xl">{{ shop.name }}</h1>
-        <p class="mt-2 text-white/85">
-          {{ shop.area }}. ঢাকায় ডেলিভারি {{ formatTaka(shop.delivery.insideDhakaPoisha) }}, ঢাকার
-          বাইরে {{ formatTaka(shop.delivery.outsideDhakaPoisha) }}।
-        </p>
-        <p class="mt-1 text-sm text-white/70">
+  <div v-if="shop" class="min-h-screen bg-cloud lg:grid lg:grid-cols-[minmax(0,1fr)_420px]">
+    <main class="pb-28 lg:pb-12">
+      <header class="bg-ink px-5 pt-10 pb-8 text-white md:px-10 md:pt-14 md:pb-10">
+        <p class="text-sm text-white/70">{{ shop.area }}</p>
+        <h1 class="mt-1 text-4xl leading-tight font-semibold md:text-5xl">{{ shop.name }}</h1>
+        <div class="mt-5 flex flex-wrap gap-2 text-sm">
+          <span class="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5"
+            ><AppIcon name="truck" />ঢাকায় {{ formatTaka(shop.delivery.insideDhakaPoisha) }}</span
+          >
+          <span class="rounded-full bg-white/12 px-3 py-1.5"
+            >ঢাকার বাইরে {{ formatTaka(shop.delivery.outsideDhakaPoisha) }}</span
+          >
+          <span
+            v-for="m in shop.paymentMethods"
+            :key="m"
+            class="rounded-full bg-white/12 px-3 py-1.5"
+            >{{ methods[m] ?? m }}</span
+          >
+        </div>
+        <p class="mt-5 max-w-lg text-white/80">
           Ask anything in Bangla or English, by text or voice. We reply in seconds.
         </p>
       </header>
@@ -216,117 +228,154 @@ onBeforeUnmount(() => stream?.close())
         <button
           v-for="p in shop.products"
           :key="p.id"
-          class="flex flex-col bg-white text-left"
+          class="flex flex-col overflow-hidden rounded-xl bg-white text-left shadow-card transition-shadow hover:shadow-lg"
           @click="choose(p)"
         >
           <img
             v-if="p.imageUrl"
             :src="p.imageUrl"
             :alt="p.name"
-            class="aspect-square w-full object-cover"
+            class="aspect-square w-full bg-cloud object-cover"
           />
           <span
             v-else
-            class="flex aspect-square items-center justify-center bg-rule/40 font-ledger text-5xl text-muted"
+            class="grid aspect-square place-items-center bg-sky text-6xl font-semibold text-ink/35"
             >{{ p.name.slice(0, 1) }}</span
           >
-          <span class="p-3">
+          <span class="flex flex-1 flex-col p-3 md:p-4">
             <span class="block text-[15px] leading-snug font-medium">{{ p.name }}</span>
-            <span class="font-ledger text-lg">{{ formatTaka(p.pricePoisha) }}</span>
+            <span class="mt-auto pt-1.5 text-lg font-semibold text-ink">{{
+              formatTaka(p.pricePoisha)
+            }}</span>
           </span>
         </button>
       </section>
     </main>
 
     <aside
-      class="fixed inset-x-0 bottom-0 z-30 flex flex-col border-t border-rule bg-white lg:sticky lg:top-0 lg:h-screen lg:border-t-0 lg:border-l"
-      :class="chatOpen ? 'top-0' : ''"
+      class="fixed inset-x-0 bottom-0 z-30 flex flex-col bg-white shadow-[0_-8px_30px_rgb(11_21_51/0.08)] lg:sticky lg:top-0 lg:h-screen lg:border-l lg:border-line lg:shadow-none"
+      :class="chatOpen ? 'top-0' : 'rounded-t-[20px]'"
     >
       <button
-        class="flex items-center justify-between px-4 py-3 text-left lg:pointer-events-none"
+        class="flex items-center gap-3 border-b border-line px-4 py-3.5 text-left lg:pointer-events-none"
         @click="chatOpen = !chatOpen"
       >
-        <span class="font-semibold">দোকানের সাথে কথা বলুন</span>
-        <span class="text-sm text-muted lg:hidden">{{ chatOpen ? 'বন্ধ করুন' : 'খুলুন' }}</span>
+        <span class="grid size-10 place-items-center rounded-full bg-ink text-white"
+          ><AppIcon name="chat"
+        /></span>
+        <span class="flex-1">
+          <span class="block font-semibold">দোকানের সাথে কথা বলুন</span>
+          <span class="block text-xs text-good">{{ typing ? 'লিখছে…' : 'অনলাইন' }}</span>
+        </span>
+        <span class="text-muted lg:hidden"
+          ><AppIcon :name="chatOpen ? 'close' : 'next'" class="-rotate-90"
+        /></span>
       </button>
       <div
         ref="log"
-        class="flex-1 overflow-y-auto px-4 lg:flex"
+        class="flex-1 overflow-y-auto bg-cloud px-4 lg:flex lg:flex-col"
         :class="chatOpen ? 'flex flex-col' : 'hidden'"
       >
-        <div class="flex flex-col gap-2 py-3">
-          <p v-if="!lines.length" class="text-sm text-muted">
+        <div class="flex flex-col gap-2.5 py-4">
+          <p v-if="!lines.length" class="rounded-2xl bg-white px-4 py-3 text-sm text-muted">
             যেমন: “মেরুন কুর্তি XL আছে? চট্টগ্রামে ডেলিভারি কত?”
           </p>
           <div
             v-for="l in lines"
             :key="l.id"
-            class="max-w-[85%] rounded-lg px-3 py-2"
-            :class="l.role === 'customer' ? 'self-end bg-ink text-white' : 'self-start bg-paper'"
+            class="max-w-[85%] rounded-2xl px-3.5 py-2.5"
+            :class="
+              l.role === 'customer'
+                ? 'self-end rounded-br-md bg-ink text-white'
+                : 'self-start rounded-bl-md border border-line bg-white'
+            "
           >
-            <img v-if="l.imageUrl" :src="l.imageUrl" alt="" class="mb-1 max-h-72 rounded" />
-            <p v-if="l.text" class="whitespace-pre-wrap">{{ l.text }}</p>
-            <div v-if="l.quickReplies?.length" class="mt-2 flex flex-wrap gap-1.5">
+            <img v-if="l.imageUrl" :src="l.imageUrl" alt="" class="mb-1.5 max-h-72 rounded-xl" />
+            <p v-if="l.text" class="leading-relaxed whitespace-pre-wrap">{{ l.text }}</p>
+            <div v-if="l.quickReplies?.length" class="mt-2.5 flex flex-wrap gap-1.5">
               <button
                 v-for="q in l.quickReplies"
                 :key="q"
-                class="rounded-full border border-khata px-3 py-1 text-sm text-khata"
+                class="rounded-full border border-ink/30 bg-sky px-3 py-1 text-sm text-ink hover:border-ink"
                 @click="say(q)"
               >
                 {{ q }}
               </button>
             </div>
           </div>
-          <p v-if="typing" class="self-start text-sm text-muted">লিখছে…</p>
+          <p v-if="typing" class="self-start rounded-2xl bg-white px-3.5 py-2 text-sm text-muted">
+            লিখছে…
+          </p>
         </div>
       </div>
       <form
-        class="flex gap-2 border-t border-rule p-3"
+        class="items-center gap-2 border-t border-line p-3"
         :class="chatOpen ? 'flex' : 'hidden lg:flex'"
         @submit.prevent="say(draft)"
       >
-        <input v-model="draft" class="field" placeholder="লিখুন…" aria-label="Message" />
+        <input
+          v-model="draft"
+          class="field rounded-full"
+          placeholder="লিখুন…"
+          aria-label="Message"
+        />
         <button
           type="button"
-          class="btn-quiet"
-          :class="recording && 'border-khata text-khata'"
+          class="grid size-11 shrink-0 place-items-center rounded-full border transition-colors"
+          :class="
+            recording ? 'border-bad bg-bad text-white' : 'border-line text-muted hover:text-ink'
+          "
           :aria-pressed="recording"
+          :aria-label="recording ? 'থামান' : 'ভয়েস'"
           @click="toggleVoice"
         >
-          {{ recording ? 'থামান' : 'ভয়েস' }}
+          <AppIcon :name="recording ? 'stop' : 'mic'" />
         </button>
-        <button class="btn-primary" :disabled="!draft.trim()">পাঠান</button>
+        <button
+          class="grid size-11 shrink-0 place-items-center rounded-full bg-ink text-white disabled:opacity-40"
+          :disabled="!draft.trim()"
+          aria-label="পাঠান"
+        >
+          <AppIcon name="send" />
+        </button>
       </form>
-      <p v-if="error && chatOpen" class="px-3 pb-2 text-sm text-khata">{{ error }}</p>
+      <p v-if="error && chatOpen" class="px-4 pb-3 text-sm text-bad">{{ error }}</p>
     </aside>
 
     <div
       v-if="picked"
-      class="fixed inset-0 z-40 flex items-end bg-ink/40 md:items-center md:justify-center"
+      class="fixed inset-0 z-40 flex items-end bg-night/50 md:items-center md:justify-center"
       @click.self="picked = null"
     >
       <section
-        class="max-h-[92vh] w-full overflow-y-auto bg-white p-5 md:max-w-lg"
+        class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 md:max-w-lg md:rounded-2xl md:p-6"
         role="dialog"
         :aria-label="picked.name"
       >
-        <div class="flex gap-4">
-          <img v-if="picked.imageUrl" :src="picked.imageUrl" alt="" class="size-24 object-cover" />
-          <div>
-            <h2 class="text-lg font-semibold">{{ picked.name }}</h2>
-            <p class="font-ledger text-2xl">
+        <div class="flex items-start gap-4">
+          <img
+            v-if="picked.imageUrl"
+            :src="picked.imageUrl"
+            alt=""
+            class="size-24 rounded-2xl object-cover"
+          />
+          <div class="flex-1">
+            <h2 class="text-lg leading-snug font-semibold">{{ picked.name }}</h2>
+            <p class="mt-1 text-2xl font-semibold text-ink">
               {{ formatTaka(pickedVariant?.pricePoisha ?? picked.pricePoisha) }}
             </p>
           </div>
+          <button class="btn-ghost min-h-9 px-2" aria-label="বন্ধ করুন" @click="picked = null">
+            <AppIcon name="close" />
+          </button>
         </div>
-        <div class="mt-4 flex flex-wrap gap-2">
+        <div class="mt-5 flex flex-wrap gap-2">
           <button
             v-for="v in picked.variants"
             :key="v.id"
-            class="rounded-md border px-3 py-1.5 text-sm"
             :class="[
-              order.variantId === v.id ? 'border-khata bg-khata text-white' : 'border-rule',
-              !v.available && 'opacity-40 line-through',
+              order.variantId === v.id ? 'chip-on' : 'chip',
+              !v.available && 'line-through opacity-40',
             ]"
             :disabled="!v.available"
             @click="order.variantId = v.id"
@@ -335,59 +384,70 @@ onBeforeUnmount(() => stream?.close())
           </button>
         </div>
 
-        <div v-if="!ordering" class="mt-5 flex gap-2">
-          <button class="btn-primary" :disabled="!order.variantId" @click="ordering = true">
+        <div v-if="!ordering" class="mt-6 grid grid-cols-2 gap-2">
+          <button
+            class="btn-primary min-h-12"
+            :disabled="!order.variantId"
+            @click="ordering = true"
+          >
             অর্ডার করুন
           </button>
-          <button class="btn-quiet" @click="askAbout">জিজ্ঞেস করুন</button>
+          <button class="btn-quiet min-h-12" @click="askAbout">জিজ্ঞেস করুন</button>
         </div>
 
-        <form v-else class="mt-5 flex flex-col gap-3" @submit.prevent="placeOrder">
-          <label class="block"
+        <form v-else class="mt-6 flex flex-col gap-3.5" @submit.prevent="placeOrder">
+          <label class="block text-sm font-medium"
             >পরিমাণ<input
               v-model.number="order.qty"
               type="number"
               min="1"
               :max="pickedVariant?.available ?? 1"
-              class="field mt-1 w-24"
+              class="field mt-1.5 w-24 font-normal"
           /></label>
-          <label class="block"
-            >নাম<input v-model="order.name" required class="field mt-1" autocomplete="name"
+          <label class="block text-sm font-medium"
+            >নাম<input
+              v-model="order.name"
+              required
+              class="field mt-1.5 font-normal"
+              autocomplete="name"
           /></label>
-          <label class="block"
+          <label class="block text-sm font-medium"
             >মোবাইল নম্বর<input
               v-model="order.phone"
               required
-              class="field mt-1"
+              class="field mt-1.5 font-normal"
               inputmode="tel"
               autocomplete="tel"
           /></label>
-          <label class="block"
+          <label class="block text-sm font-medium"
             >ঠিকানা<input
               v-model="order.address"
               required
-              class="field mt-1"
+              class="field mt-1.5 font-normal"
               autocomplete="street-address"
           /></label>
-          <label class="block"
+          <label class="block text-sm font-medium"
             >এলাকা / শহর<input
               v-model="order.area"
               required
-              class="field mt-1"
+              class="field mt-1.5 font-normal"
               placeholder="যেমন: মিরপুর, চট্টগ্রাম"
           /></label>
           <fieldset>
-            <legend>পেমেন্ট</legend>
-            <div class="mt-1 flex flex-wrap gap-4">
-              <label v-for="m in shop.paymentMethods" :key="m" class="flex items-center gap-2"
-                ><input v-model="order.paymentMethod" type="radio" :value="m" />{{
+            <legend class="text-sm font-medium">পেমেন্ট</legend>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <label
+                v-for="m in shop.paymentMethods"
+                :key="m"
+                class="chip cursor-pointer has-checked:border-ink has-checked:bg-sky has-checked:text-ink"
+                ><input v-model="order.paymentMethod" type="radio" :value="m" class="sr-only" />{{
                   methods[m] ?? m
                 }}</label
               >
             </div>
           </fieldset>
-          <p v-if="error" class="text-sm text-khata">{{ error }}</p>
-          <button class="btn-primary">অর্ডার পাঠান</button>
+          <p v-if="error" class="text-sm text-bad">{{ error }}</p>
+          <button class="btn-primary mt-1 min-h-12 text-base">অর্ডার পাঠান</button>
         </form>
       </section>
     </div>

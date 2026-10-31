@@ -1,28 +1,29 @@
 @import 'tailwindcss';
-@import '@fontsource/hind-siliguri/400.css';
-@import '@fontsource/hind-siliguri/500.css';
-@import '@fontsource/hind-siliguri/600.css';
-@import '@fontsource/tiro-bangla/400.css';
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/anek-bangla/wdth.css';
 
 @theme {
-  --font-sans: 'Hind Siliguri', system-ui, sans-serif;
-  --font-ledger: 'Tiro Bangla', Georgia, serif;
-  --color-khata: #8e1b22;
-  --color-khata-dark: #6d141a;
-  --color-ink: #1b2430;
-  --color-paper: #f6f7f4;
-  --color-rule: #d5dde8;
-  --color-marigold: #e8a317;
-  --color-leaf: #1f7a4d;
-  --color-muted: #5f6b7a;
+  --font-sans: 'Inter Variable', 'Anek Bangla Variable', system-ui, sans-serif;
+  --color-ink: #1a8cf0;
+  --color-ink-dark: #0f72cc;
+  --color-sky: #e8f4fe;
+  --color-night: #1d2630;
+  --color-cloud: #f6f8fa;
+  --color-line: #e8ecf1;
+  --color-muted: #6b7785;
+  --color-good: #2ca87f;
+  --color-warn: #e58a00;
+  --color-bad: #e04b4b;
+  --shadow-card: 0 1px 20px 0 rgb(69 90 100 / 0.08);
 }
 
 @layer base {
   body {
-    @apply bg-paper text-ink antialiased;
+    @apply bg-cloud text-sm text-night antialiased;
+    font-variant-numeric: tabular-nums;
   }
   :focus-visible {
-    outline: 2px solid var(--color-khata);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -35,22 +36,62 @@
   }
 }
 
-@utility ledger-row {
-  @apply flex items-baseline justify-between gap-4 border-b border-rule py-3;
+@utility page-title {
+  @apply text-xl font-semibold;
+}
+
+@utility panel {
+  @apply rounded-xl bg-white shadow-card;
+}
+
+@utility card-head {
+  @apply flex min-h-14 items-center justify-between gap-3 border-b border-line px-5 py-3 font-semibold;
+}
+
+@utility row {
+  @apply flex items-center justify-between gap-4 border-b border-line px-5 py-3.5 last:border-b-0;
+}
+
+@utility row-link {
+  @apply row transition-colors hover:bg-cloud;
 }
 
 @utility btn {
-  @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:opacity-50;
+  @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45;
 }
 
 @utility btn-primary {
-  @apply btn bg-khata text-white hover:bg-khata-dark;
+  @apply btn bg-ink text-white hover:bg-ink-dark;
 }
 
 @utility btn-quiet {
-  @apply btn border border-rule bg-white text-ink hover:border-ink;
+  @apply btn border border-line bg-white text-night hover:border-ink hover:text-ink;
+}
+
+@utility btn-ghost {
+  @apply btn px-3 text-muted hover:bg-sky hover:text-ink;
 }
 
 @utility field {
-  @apply min-h-10 w-full rounded-md border border-rule bg-white px-3 text-base outline-none focus:border-ink;
+  @apply min-h-10 w-full rounded-lg border border-line bg-white px-3.5 text-sm outline-none transition-colors placeholder:text-muted/70 focus:border-ink focus:ring-3 focus:ring-ink/15;
+}
+
+@utility chip {
+  @apply inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm text-night transition-colors hover:border-ink hover:text-ink;
+}
+
+@utility chip-on {
+  @apply chip border-ink bg-ink text-white hover:text-white;
+}
+
+@utility badge {
+  @apply inline-flex items-center rounded px-1.5 text-xs leading-5 font-medium;
+}
+
+@utility back-link {
+  @apply inline-flex items-center gap-1 text-sm text-muted hover:text-ink;
+}
+
+@utility empty {
+  @apply px-6 py-12 text-center text-muted;
 }
