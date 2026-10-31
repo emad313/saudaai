@@ -1,0 +1,14 @@
+{
+  "data": {
+    "draftOrderComplete": {
+      "draftOrder": {
+        "order": {
+          "id": "gid://shopify/Order/5551",
+          "name": "#1001",
+          "totalPriceSet": { "shopMoney": { "amount": "3060.0", "currencyCode": "BDT" } }
+        }
+      },
+      "userErrors": []
+    }
+  }
+}

@@ -1,0 +1,110 @@
+import { readFileSync } from 'node:fs'
+
+const fixture = (name: string) =>
+  JSON.parse(readFileSync(new URL(`./fixtures/shopify/${name}.json`, import.meta.url), 'utf8'))
+
+export const shopifyDomain = 'nusrat-test.myshopify.com'
+
+// Answers Admin GraphQL from fixtures, keyed on the operation in the query text.
+export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string } = {}) {
+  const ops: { op: string; variables: Record<string, unknown> }[] = []
+  let throttled = !opts.throttleFirst
+
+  const ok = (data: unknown) => Response.json({ data })
+  const none = { userErrors: [] }
+
+  async function fetch(input: string | URL | Request, init?: RequestInit) {
+    const url = String(input)
+    const headers = init?.headers as Record<string, string>
+    if (!url.startsWith(`https://${shopifyDomain}/admin/api/`))
+      return new Response('', { status: 404 })
+    if (headers['x-shopify-access-token'] !== 'shpat_test_token') {
+      return Response.json({ errors: '[API] Invalid API key or access token' }, { status: 401 })
+    }
+    const { query, variables } = JSON.parse(String(init?.body)) as {
+      query: string
+      variables: Record<string, unknown>
+    }
+    if (!throttled) {
+      throttled = true
+      return Response.json({
+        errors: [{ message: 'Throttled', extensions: { code: 'THROTTLED' } }],
+      })
+    }
+    const has = (word: string) => query.includes(word)
+    const op = [
+      'draftOrderCreate',
+      'draftOrderComplete',
+      'orderCancel',
+      'fulfillmentCreate',
+      'fulfillmentOrders',
+      'tagsAdd',
+      'orderMarkAsPaid',
+      'orderUpdate',
+      'order(id: $id) { note',
+      'inventoryAdjustQuantities',
+      'inventoryItem(id',
+      'productVariant(id',
+      'totalPriceSet { shopMoney { amount } } } }',
+      'products(first',
+      'product(id',
+      'shop {',
+    ].find(has)
+    ops.push({ op: op ?? 'unknown', variables })
+
+    switch (op) {
+      case 'shop {':
+        return ok({ shop: { name: "Nusrat's Closet", currencyCode: opts.currency ?? 'BDT' } })
+      case 'products(first':
+        return Response.json(fixture(variables.cursor ? 'products-2' : 'products-1'))
+      case 'product(id': {
+        const all = [
+          ...fixture('products-1').data.products.nodes,
+          ...fixture('products-2').data.products.nodes,
+        ]
+        return ok({ product: all.find((p: { id: string }) => p.id === variables.id) ?? null })
+      }
+      case 'draftOrderCreate':
+        return ok({
+          draftOrderCreate: { draftOrder: { id: 'gid://shopify/DraftOrder/777' }, ...none },
+        })
+      case 'draftOrderComplete':
+        return Response.json(fixture('draft-complete'))
+      case 'totalPriceSet { shopMoney { amount } } } }':
+        return ok({ order: { totalPriceSet: { shopMoney: { amount: '3060.00' } } } })
+      case 'fulfillmentOrders':
+        return ok({
+          order: {
+            fulfillmentOrders: {
+              nodes: [{ id: 'gid://shopify/FulfillmentOrder/1', status: 'OPEN' }],
+            },
+          },
+        })
+      case 'inventoryItem(id':
+        return ok({ inventoryItem: { variant: { id: 'gid://shopify/ProductVariant/9002' } } })
+      case 'productVariant(id':
+        return ok({
+          productVariant: {
+            inventoryItem: {
+              id: 'gid://shopify/InventoryItem/42',
+              inventoryLevels: {
+                nodes: [
+                  { location: { id: 'gid://shopify/Location/1' }, quantities: [{ quantity: 4 }] },
+                ],
+              },
+            },
+          },
+        })
+      case 'order(id: $id) { note':
+        return ok({ order: { note: null } })
+      case 'orderCancel':
+        return ok({ orderCancel: { orderCancelUserErrors: [] } })
+      case undefined:
+        return Response.json({ errors: [{ message: `unexpected query: ${query.slice(0, 60)}` }] })
+      default:
+        return ok({ [op.replace(/[^a-zA-Z].*$/, '')]: none })
+    }
+  }
+
+  return { ops, fetch }
+}

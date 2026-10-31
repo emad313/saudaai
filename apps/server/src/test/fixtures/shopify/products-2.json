@@ -1,0 +1,28 @@
+{
+  "data": {
+    "products": {
+      "pageInfo": { "hasNextPage": false, "endCursor": "eyJsYXN0X2lkIjo4MDAyfQ" },
+      "nodes": [
+        {
+          "id": "gid://shopify/Product/8002",
+          "title": "Jute Tote Bag",
+          "productType": "",
+          "status": "ACTIVE",
+          "featuredMedia": null,
+          "variants": {
+            "nodes": [
+              {
+                "id": "gid://shopify/ProductVariant/9003",
+                "sku": null,
+                "price": "499.50",
+                "selectedOptions": [{ "name": "Title", "value": "Default Title" }],
+                "inventoryQuantity": 0,
+                "inventoryItem": { "tracked": false }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

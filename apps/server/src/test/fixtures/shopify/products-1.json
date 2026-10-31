@@ -1,0 +1,51 @@
+{
+  "data": {
+    "products": {
+      "pageInfo": { "hasNextPage": true, "endCursor": "eyJsYXN0X2lkIjo4MDAxfQ" },
+      "nodes": [
+        {
+          "id": "gid://shopify/Product/8001",
+          "title": "Indigo Block Print Kurti",
+          "productType": "Kurti",
+          "status": "ACTIVE",
+          "featuredMedia": {
+            "preview": { "image": { "url": "https://cdn.shopify.com/s/files/1/kurti.jpg" } }
+          },
+          "variants": {
+            "nodes": [
+              {
+                "id": "gid://shopify/ProductVariant/9001",
+                "sku": "KUR-IND-M",
+                "price": "1500.00",
+                "selectedOptions": [
+                  { "name": "Size", "value": "M" },
+                  { "name": "Color", "value": "Indigo" }
+                ],
+                "inventoryQuantity": 4,
+                "inventoryItem": { "tracked": true }
+              },
+              {
+                "id": "gid://shopify/ProductVariant/9002",
+                "sku": "KUR-IND-L",
+                "price": "1500.00",
+                "selectedOptions": [
+                  { "name": "Size", "value": "L" },
+                  { "name": "Color", "value": "Indigo" }
+                ],
+                "inventoryQuantity": 2,
+                "inventoryItem": { "tracked": true }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 52,
+      "actualQueryCost": 8,
+      "throttleStatus": { "maximumAvailable": 2000, "currentlyAvailable": 1992, "restoreRate": 100 }
+    }
+  }
+}

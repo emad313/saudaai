@@ -6,6 +6,7 @@ import { products, stores, type StoreKind } from '../db/schema.ts'
 import { env } from '../env.ts'
 import { mask, seal, unseal } from './crypto.ts'
 import { customConnector } from './custom.ts'
+import { shopifyConnector } from './shopify.ts'
 import { StoreError, type StoreConnector } from './types.ts'
 
 export type StoreRow = typeof stores.$inferSelect
@@ -19,6 +20,8 @@ export function connectorFor(row: StoreRow): StoreConnector | null {
   switch (row.kind) {
     case 'custom':
       return customConnector(row, creds, secret)
+    case 'shopify':
+      return shopifyConnector(row, creds, secret)
     default:
       throw new StoreError(`${row.kind} stores are not supported yet`)
   }

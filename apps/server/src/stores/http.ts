@@ -52,3 +52,6 @@ export function hmacMatches(
   const got = Buffer.from(given, encoding)
   return got.length === want.length && timingSafeEqual(got, want)
 }
+
+export const decimal = (poisha: number) =>
+  `${Math.floor(poisha / 100)}.${String(poisha % 100).padStart(2, '0')}`
