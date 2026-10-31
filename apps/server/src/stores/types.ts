@@ -56,6 +56,7 @@ export interface StoreConnector {
   getProduct(externalId: string): Promise<ExternalProduct | null>
   createOrder(input: ExternalOrderInput): Promise<ExternalOrder>
   updateOrder(externalId: string, change: OrderChange): Promise<void>
+  adjustStock?(variantExternalId: string, delta: number): Promise<number>
   createProduct?(p: Omit<ExternalProduct, 'externalId'>): Promise<ExternalProduct>
   publishProduct?(externalId: string): Promise<void>
   parseWebhook(req: { headers: Record<string, string>; raw: string }): Promise<StoreEvent[]>
