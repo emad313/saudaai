@@ -86,7 +86,7 @@ Server: Hono, grammY, Drizzle on SQLite (libSQL), zod, p-queue, croner, sharp, P
 
 ## Running locally
 
-Requirements: Node 22, pnpm 10, ffmpeg, a Telegram bot token and model credentials.
+Requirements: Node 24, pnpm 10, ffmpeg, a Telegram bot token and model credentials.
 
 ```bash
 pnpm install
