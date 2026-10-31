@@ -1,0 +1,67 @@
+- id: store-order-on-confirm
+  category: connected store
+  actor: seller
+  inputKind: voice
+  setup: { store: true, auto: { send_order_confirmation: true } }
+  input: Rahim bhai 2 ta maroon kurti nibe M size, Mirpur 10, bkash e pay korbe
+  expect:
+    order:
+      {
+        items: [Maroon Block Print Kurti/M x2],
+        paymentMethod: bkash,
+        customer: Rahim Uddin,
+        status: confirmed,
+      }
+    storeOrders: 1
+
+- id: store-live-price
+  category: connected store
+  actor: seller
+  setup:
+    store: true
+    storeChange: { variant: Maroon Block Print Kurti/L, taka: 1350 }
+  input: Rahim Uddin er jonno 1 ta maroon kurti L size order koro, Mirpur 10, cash on delivery
+  expect:
+    order: { items: [Maroon Block Print Kurti/L x1], subtotalTaka: 1350, status: draft }
+    storeOrders: 0
+
+- id: store-sold-out-since-sync
+  category: connected store
+  actor: customer
+  setup:
+    store: true
+    storeChange: { variant: Navy Embroidered Kurti/M, stock: 0 }
+  history:
+    - { role: customer, text: navy kurti M size ache? }
+    - { role: agent, text: 'Ji, Navy Embroidered Kurti M size ache, dam ৳1,450.' }
+  input: 'thik ache 1 ta nibo. Mitu, 01755123456, House 4 Road 2 Uttara, Uttara, cash on delivery'
+  expect:
+    noOrder: true
+    storeOrders: 0
+    noOffer: true
+
+- id: analytics-by-voice
+  category: analytics
+  actor: seller
+  inputKind: voice
+  input: ei soptahe kon product sobcheye beshi bikri holo ar kon channel theke beshi order aslo?
+  expect:
+    calls: [analytics]
+
+- id: widget-product-context
+  category: website widget
+  actor: customer
+  setup: { viewing: Navy Embroidered Kurti }
+  input: eta XL size ache? dam koto?
+  expect:
+    reply: { containsAny: ['1,450', '1450', '১,৪৫০', '১৪৫০'] }
+    held: false
+
+- id: instagram-question
+  category: instagram
+  actor: customer
+  channel: instagram
+  input: kalo t-shirt L size ache? dam koto?
+  expect:
+    reply: { containsAny: ['450', '৪৫০'] }
+    held: false

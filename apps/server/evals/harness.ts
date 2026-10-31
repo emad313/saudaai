@@ -1,7 +1,8 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { createStoreApp, openDb as openStoreDb } from '@saudaai/demo-store'
+import { and, eq, gt, isNotNull, isNull, sql } from 'drizzle-orm'
 import sharp from 'sharp'
 import type { Deps, PendingAction } from '../src/agent/deps.ts'
 import { runTurn } from '../src/agent/loop.ts'
@@ -30,6 +31,8 @@ import { seedDemoShop } from '../src/db/seed.ts'
 import { createInbox } from '../src/inbox.ts'
 import { saveMedia } from '../src/media/store.ts'
 import type { Models } from '../src/models/index.ts'
+import { connectStore } from '../src/stores/index.ts'
+import { pullStore } from '../src/stores/sync.ts'
 import type { EvalCase } from './case.ts'
 
 export type CaseResult = {
@@ -48,13 +51,18 @@ async function png() {
     .toBuffer()
 }
 
+// With a store connected the synced copy is the catalog; builtin products of the same name stay behind.
+let synced = false
+
 async function variantByKey(db: Db, key: string) {
   const [name, label] = key.split('/') as [string, string]
   const rows = await db
     .select({ v: variants, p: products })
     .from(variants)
     .innerJoin(products, eq(products.id, variants.productId))
-    .where(eq(products.name, name))
+    .where(
+      and(eq(products.name, name), synced ? isNotNull(products.storeId) : isNull(products.storeId)),
+    )
   const v = rows.find((r) =>
     [r.v.size, r.v.color].some((x) => x?.toLowerCase() === label.toLowerCase()),
   )
@@ -71,11 +79,11 @@ async function customerByName(db: Db, name: string) {
 const has = (text: string, needle: string) => text.toLowerCase().includes(needle.toLowerCase())
 const bangla = (n: number) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!)
 
-function metaPayload(channel: 'messenger' | 'whatsapp', text: string, at: number) {
-  if (channel === 'messenger') {
+function metaPayload(channel: 'messenger' | 'whatsapp' | 'instagram', text: string, at: number) {
+  if (channel !== 'whatsapp') {
     return parseMessenger(
       {
-        object: 'page',
+        object: channel === 'instagram' ? 'instagram' : 'page',
         entry: [
           {
             id: 'PAGE',
@@ -91,6 +99,7 @@ function metaPayload(channel: 'messenger' | 'whatsapp', text: string, at: number
         ],
       } as MessengerPayload,
       () => 'shop',
+      channel,
     )
   }
   return parseWhatsApp(
@@ -123,7 +132,40 @@ function metaPayload(channel: 'messenger' | 'whatsapp', text: string, at: number
   )
 }
 
-export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Promise<CaseResult> {
+const storeBase = 'https://demo-store.eval'
+const storeToken = 'eval-store-token'
+
+// apps/demo-store runs in-process; everything else (the model API) goes out for real.
+async function withStore() {
+  const storeDb = await openStoreDb(':memory:')
+  const app = createStoreApp(storeDb, { token: storeToken })
+  const real = globalThis.fetch
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) =>
+    String(input instanceof Request ? input.url : input).startsWith(storeBase)
+      ? app.fetch(new Request(String(input), init))
+      : real(input, init)) as typeof fetch
+  return { storeDb, restore: () => (globalThis.fetch = real) }
+}
+
+export async function runCase(
+  c: EvalCase,
+  makeModels: (db: Db) => Models,
+  opts: { store?: boolean } = {},
+): Promise<CaseResult> {
+  const store = opts.store || c.setup.store ? await withStore() : null
+  try {
+    return await runIn(c, makeModels, store)
+  } finally {
+    store?.restore()
+    synced = false
+  }
+}
+
+async function runIn(
+  c: EvalCase,
+  makeModels: (db: Db) => Models,
+  store: Awaited<ReturnType<typeof withStore>> | null,
+): Promise<CaseResult> {
   const started = Date.now()
   const db = openDb(`file:${join(mkdtempSync(join(tmpdir(), 'saudaai-eval-')), 'eval.db')}`)
   await migrateDb(db)
@@ -152,6 +194,31 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
   }
 
   const s = c.setup
+  if (store) {
+    const { row, connector } = await connectStore(
+      db,
+      shop,
+      { kind: 'custom', baseUrl: storeBase, credentials: { token: storeToken } },
+      now,
+    )
+    await pullStore(db, row, connector!, now)
+    synced = true
+  }
+  if (s.storeChange) {
+    if (!store) throw new Error(`${c.id}: storeChange needs setup.store`)
+    const [name, label] = s.storeChange.variant.split('/') as [string, string]
+    await store.storeDb.execute({
+      sql: `update variants set price_poisha = coalesce(?, price_poisha), stock = coalesce(?, stock)
+        where product_id = (select id from products where name = ?) and (lower(size) = lower(?) or lower(color) = lower(?))`,
+      args: [
+        s.storeChange.taka === undefined ? null : s.storeChange.taka * 100,
+        s.storeChange.stock ?? null,
+        name,
+        label,
+        label,
+      ],
+    })
+  }
   let input = c.input
   if (s.photo)
     input = input.replace(
@@ -223,12 +290,18 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
   } else if (c.channel === 'webchat') {
     const conversationId = newId()
     const customerId = s.customer ? (await customerByName(db, s.customer)).id : null
+    const viewed = s.viewing
+      ? (await db.select().from(products).where(eq(products.name, s.viewing))).find((p) =>
+          store ? p.storeId : !p.storeId,
+        )
+      : null
     await db.insert(conversations).values({
       id: conversationId,
       shopId: shop.id,
       channel: 'webchat',
       externalUserId: `web_${conversationId}`,
       customerId,
+      meta: viewed ? { productId: viewed.externalId ?? viewed.id } : null,
       lastInboundAt: now,
       createdAt: now,
     })
@@ -259,8 +332,12 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
     await inbox.idle()
   }
 
+  const storeOrders = store
+    ? Number((await store.storeDb.execute('select count(*) as n from orders')).rows[0]!.n)
+    : 0
   const failures = await check(c, {
     db,
+    storeOrders,
     shopId: shop.id,
     since: now,
     lastNumber,
@@ -296,6 +373,7 @@ function replyOf(c: EvalCase, notes: { text: string }[], sent: OutboundMessage[]
 
 type State = {
   db: Db
+  storeOrders: number
   shopId: string
   since: number
   lastNumber: number
@@ -351,6 +429,8 @@ async function check(c: EvalCase, st: State): Promise<string[]> {
         out.push(`source ${o.source} != ${e.order.source}`)
       if (e.order.deliveryTaka !== undefined && o.deliveryPoisha !== e.order.deliveryTaka * 100)
         out.push(`delivery ${o.deliveryPoisha / 100} != ${e.order.deliveryTaka}`)
+      if (e.order.subtotalTaka !== undefined && o.subtotalPoisha !== e.order.subtotalTaka * 100)
+        out.push(`subtotal ${o.subtotalPoisha / 100} != ${e.order.subtotalTaka}`)
       if (e.order.customer) {
         const [cust] = await db.select().from(customers).where(eq(customers.id, o.customerId))
         if (!cust || !has(cust.name, e.order.customer))
@@ -358,6 +438,8 @@ async function check(c: EvalCase, st: State): Promise<string[]> {
       }
     }
   }
+  if (e.storeOrders !== undefined && st.storeOrders !== e.storeOrders)
+    out.push(`${st.storeOrders} orders reached the store, expected ${e.storeOrders}`)
   if (e.noOrder && newOrders.length)
     out.push(`expected no order, got #${newOrders.map((o) => o.number).join(', #')}`)
 

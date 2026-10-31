@@ -13,9 +13,9 @@ function idFrom(messages: ChatMessage[], name: string, label: string) {
 }
 
 describe('eval cases', () => {
-  it('has 40 well formed cases with unique ids', () => {
-    expect(cases).toHaveLength(40)
-    expect(new Set(cases.map((c) => c.id)).size).toBe(40)
+  it('has 46 well formed cases with unique ids', () => {
+    expect(cases).toHaveLength(46)
+    expect(new Set(cases.map((c) => c.id)).size).toBe(46)
   })
 })
 
@@ -58,5 +58,30 @@ describe('harness', () => {
     })
     expect(r.pass).toBe(false)
     expect(r.failures[0]).toContain('White Cotton T-Shirt/M changed by 0')
+  })
+})
+
+describe('harness with a connected store', () => {
+  it('runs against the demo store and sees the live price', async () => {
+    const livePrice = cases.find((c) => c.id === 'store-live-price')!
+    const r = await runCase(livePrice, (db) => {
+      const f = fakeDeps(db, [
+        calls(call('find_customer', { query: 'Rahim' })),
+        (messages) => {
+          const found = JSON.parse(String(messages.at(-1)!.content))
+          return calls(
+            call('create_order', {
+              customerId: found.matches[0].customerId,
+              lines: [{ variantId: idFrom(messages, 'Maroon Block Print Kurti', 'L'), qty: 1 }],
+              deliveryArea: 'Mirpur 10',
+              paymentMethod: 'cod',
+            }),
+          )
+        },
+        say('Rahim bhai er order draft holo.'),
+      ])
+      return f.deps.models
+    })
+    expect(r.failures).toEqual([])
   })
 })

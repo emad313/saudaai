@@ -6,7 +6,7 @@ export const evalCase = z.object({
   id: z.string(),
   category: z.string().optional(),
   actor: z.enum(['seller', 'customer']),
-  channel: z.enum(['webchat', 'messenger', 'whatsapp']).default('webchat'),
+  channel: z.enum(['webchat', 'messenger', 'whatsapp', 'instagram']).default('webchat'),
   inputKind: z.enum(['text', 'voice', 'photo']).default('text'),
   input: z.string().min(1),
   history: z
@@ -18,6 +18,11 @@ export const evalCase = z.object({
       photoFor: z.string().optional(),
       customer: z.string().optional(),
       auto: z.record(z.string(), z.unknown()).optional(),
+      store: z.boolean().optional(),
+      storeChange: z
+        .object({ variant: variantKey, taka: z.number().optional(), stock: z.number().optional() })
+        .optional(),
+      viewing: z.string().optional(),
       staleChat: z
         .object({
           customer: z.string(),
@@ -37,6 +42,7 @@ export const evalCase = z.object({
           status: z.string().optional(),
           source: z.string().optional(),
           deliveryTaka: z.number().optional(),
+          subtotalTaka: z.number().optional(),
         })
         .optional(),
       noOrder: z.boolean().optional(),
@@ -69,6 +75,7 @@ export const evalCase = z.object({
       sentImages: z.number().optional(),
       sentMessages: z.number().optional(),
       noOffer: z.boolean().optional(),
+      storeOrders: z.number().optional(),
     })
     .refine((e) => Object.keys(e).length > 0, 'a case needs at least one expectation'),
 })

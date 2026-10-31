@@ -13,6 +13,7 @@ const { values } = parseArgs({
     provider: { type: 'string', default: env.AGENT_PROVIDER },
     only: { type: 'string' },
     category: { type: 'string' },
+    store: { type: 'boolean', default: false },
   },
 })
 const provider = values.provider === 'baseten' ? 'baseten' : 'meta'
@@ -23,7 +24,9 @@ const cases = loadCases().filter(
 
 const results: CaseResult[] = []
 for (const c of cases) {
-  const r = await runCase(c, (db) => createModels(db, { ...env, AGENT_PROVIDER: provider }))
+  const r = await runCase(c, (db) => createModels(db, { ...env, AGENT_PROVIDER: provider }), {
+    store: values.store,
+  })
   results.push(r)
   console.log(
     `${r.pass ? 'pass' : 'FAIL'}  ${r.id}  ${r.ms}ms${r.pass ? '' : `\n      ${r.failures.join('\n      ')}\n      calls: ${r.calls.map((x) => `${x.tool}:${x.decision}`).join(' ')}\n      reply: ${r.reply.replace(/\n/g, ' | ').slice(0, 300)}`}`,
@@ -37,15 +40,16 @@ for (const r of results) {
   if (r.pass) b.passed++
 }
 const passed = results.filter((r) => r.pass).length
-console.log(`\n${provider}: ${passed}/${results.length} passed`)
+const label = values.store ? `${provider}-store` : provider
+console.log(`\n${label}: ${passed}/${results.length} passed`)
 for (const [cat, b] of Object.entries(byCategory)) console.log(`  ${cat}: ${b.passed}/${b.total}`)
 
 const model = provider === 'meta' ? env.META_AGENT_MODEL : env.BASETEN_MODEL
-const out = join(dirname(fileURLToPath(import.meta.url)), 'reports', `${provider}.json`)
+const out = join(dirname(fileURLToPath(import.meta.url)), 'reports', `${label}.json`)
 mkdirSync(dirname(out), { recursive: true })
 writeFileSync(
   out,
-  `${JSON.stringify({ provider, model, ranAt: new Date().toISOString(), passed, total: results.length, byCategory, results }, null, 2)}\n`,
+  `${JSON.stringify({ provider, store: values.store, model, ranAt: new Date().toISOString(), passed, total: results.length, byCategory, results }, null, 2)}\n`,
 )
 await closeBrowser()
 process.exit(passed === results.length ? 0 : 1)
