@@ -68,6 +68,9 @@ export function createTelegram(db: Db) {
           .where(eq(products.id, String(pending.args.productId)))
         image = p ? ((await productImage(db, p))?.id ?? null) : null
       }
+      if (pending.tool === 'post_to_page') {
+        image = String((pending.args.mediaIds as string[] | undefined)?.[0] ?? '') || null
+      }
       const file = image ? await loadMedia(db, image) : null
       const sent = file
         ? await bot.api.sendPhoto(chat, new InputFile(file.row.path), {

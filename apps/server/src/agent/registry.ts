@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { newId } from '../db/ids.ts'
 import { productImage } from '../catalog/image.ts'
+import { postToPage } from '../channels/page.ts'
 import { conversations, customerIdentities, orders, orderStatuses } from '../db/schema.ts'
 import { canSendFreeform } from '../channels/window.ts'
 import type { Ctx } from '../tools/ctx.ts'
@@ -452,6 +453,21 @@ export const tools: ToolDef[] = [
     },
     done: (r: { product: string; mediaIds: string[] }) =>
       `${r.mediaIds.length} ads made for ${r.product}`,
+  }),
+  tool({
+    name: 'post_to_page',
+    description:
+      "Post images (usually ads from make_ad, by mediaId) with a caption on the shop's Facebook Page. Write the caption in the shop's voice with the price from the tool results. The owner approves it first.",
+    schema: z.object({
+      mediaIds: z.array(id).min(1).max(10),
+      caption: z.string().min(1).max(2000),
+    }),
+    expose: 'seller',
+    guard: () => true,
+    preview: async (_ctx, a) =>
+      `Post this on the Facebook Page? (${a.mediaIds.length} ${a.mediaIds.length === 1 ? 'image' : 'images'})\n\n${a.caption}`,
+    run: (ctx, a) => postToPage(ctx.db, a),
+    done: (r: { url: string }) => `Posted on the Page: ${r.url}`,
   }),
   tool({
     name: 'sales_report',
