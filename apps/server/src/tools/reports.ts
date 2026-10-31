@@ -56,6 +56,29 @@ export async function salesReport(ctx: Ctx, args: { from?: string; to?: string }
   }
 }
 
+export async function dailySales(ctx: Ctx, days = 7) {
+  const start = dhakaDayStart(ctx.now) - (days - 1) * dayMs
+  const rows = await ctx.db
+    .select({ createdAt: orders.createdAt, subtotal: orders.subtotalPoisha })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.shopId, ctx.shop.id),
+        inArray(orders.status, ['confirmed', 'shipped', 'delivered']),
+        gte(orders.createdAt, start),
+      ),
+    )
+  return Array.from({ length: days }, (_, i) => {
+    const date = dhakaDate(start + i * dayMs)
+    const sold = rows.filter((o) => dhakaDate(o.createdAt) === date)
+    return {
+      date,
+      orders: sold.length,
+      revenuePoisha: sumPoisha(sold.map((o) => o.subtotal)),
+    }
+  })
+}
+
 export async function lowStock(ctx: Ctx, threshold = 2) {
   const rows = await ctx.db
     .select({

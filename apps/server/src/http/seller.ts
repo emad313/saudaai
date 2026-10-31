@@ -32,7 +32,7 @@ import type { Ctx, Shop } from '../tools/ctx.ts'
 import { customerView, requireCustomer } from '../tools/customers.ts'
 import { getOrder, listOrders, recordPayment, updateOrderStatus } from '../tools/orders.ts'
 import { adjustStock, getProduct, loadVariants, updateProduct } from '../tools/products.ts'
-import { dailySummary, salesReport } from '../tools/reports.ts'
+import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
 import type { SellerEnv } from './session.ts'
@@ -108,8 +108,9 @@ export function sellerRoutes(deps: Deps) {
 
   app.get('/dashboard', async (c) => {
     const shop = c.get('shop')
-    const [summary, pending, recent, usage] = await Promise.all([
+    const [summary, week, pending, recent, usage] = await Promise.all([
       dailySummary(ctx(shop)),
+      dailySales(ctx(shop)),
       db
         .select({ n: sql<number>`count(*)` })
         .from(pendingActions)
@@ -125,7 +126,7 @@ export function sellerRoutes(deps: Deps) {
         .where(gte(modelCalls.createdAt, dhakaDayStart(deps.now())))
         .groupBy(modelCalls.purpose),
     ])
-    return c.json({ summary, pending: Number(pending[0]?.n ?? 0), recent, usage })
+    return c.json({ summary, week, pending: Number(pending[0]?.n ?? 0), recent, usage })
   })
 
   app.get('/orders', async (c) => {
