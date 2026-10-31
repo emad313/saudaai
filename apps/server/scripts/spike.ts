@@ -87,7 +87,8 @@ await check(`transcribe${values.audio ? '' : ' (1s tone, pass --audio for speech
 await check('describe photo', () => models.describe(photo, 'eta 1250 taka'))
 await check('segment photo', async () => {
   const mask = await models.segment(photo, 'kurti')
-  if (!mask) throw new Error('META_SAM_MODEL is not set')
+  if (!env.META_SAM_MODEL) throw new Error('META_SAM_MODEL is not set')
+  if (!mask) return 'request ok, no object matched (pass --image with a real product photo)'
   writeFileSync('spike-mask.png', mask)
   return `mask saved to spike-mask.png (${mask.length} bytes)`
 })
@@ -96,7 +97,7 @@ await check('image background', async () => {
     'Soft studio background for a maroon kurti, eid mood, no text',
     '1024x1024',
   )
-  writeFileSync('spike-background.png', img)
-  return `saved spike-background.png (${img.length} bytes)`
+  writeFileSync('spike-background.webp', img)
+  return `saved spike-background.webp (${img.length} bytes)`
 })
 process.exit(0)
