@@ -130,14 +130,28 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
     const input = { chatId: shop.telegramChatId ?? `web_${shop.id}`, messageId: newId() }
     let turn
     if (c.req.header('content-type')?.startsWith('multipart/form-data')) {
-      const voice = (await c.req.formData()).get('voice')
-      if (!(voice instanceof File) || voice.size > 10_000_000) {
-        throw new HTTPException(400, { message: 'voice note missing or too large' })
+      const form = await c.req.formData()
+      const voice = form.get('voice')
+      const photo = form.get('photo')
+      const file = voice instanceof File ? voice : photo instanceof File ? photo : null
+      if (!file || file.size > 10_000_000) {
+        throw new HTTPException(400, { message: 'voice note or photo missing or too large' })
       }
-      const bytes = Buffer.from(await voice.arrayBuffer())
+      if (photo instanceof File && !photo.type.startsWith('image/')) {
+        throw new HTTPException(400, { message: 'the photo must be an image' })
+      }
+      const bytes = Buffer.from(await file.arrayBuffer())
+      const caption = form.get('text')
       turn = await inbox.seller(
         shop,
-        { ...input, kind: 'voice', media: { bytes, mime: voice.type || 'audio/webm' } },
+        voice instanceof File
+          ? { ...input, kind: 'voice', media: { bytes, mime: voice.type || 'audio/webm' } }
+          : {
+              ...input,
+              kind: 'photo',
+              text: typeof caption === 'string' ? caption : undefined,
+              media: { bytes, mime: file.type },
+            },
         line,
       )
     } else {

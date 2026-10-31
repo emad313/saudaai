@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegram } from '../channels/telegram.ts'
 import { loginCodes } from '../db/schema.ts'
@@ -281,5 +282,38 @@ describe('command box', () => {
     expect(out.pending[0]).toMatchObject({ tool: 'send_order_confirmation', status: 'pending' })
     expect(f.approvals.map((a) => a.id)).toEqual([out.pending[0].id])
     expect(f.notes).toEqual([])
+  })
+})
+
+describe('command box photo', () => {
+  it('runs the product photo path with the typed caption', async () => {
+    f = fakeDeps(t.db, [say('Dam koto rakhbo?')])
+    const inbox = createInbox(f.deps)
+    app = createApp({ db: t.db, deps: f.deps, inbox, telegram: createTelegram(t.db) })
+    const cookie = await signIn()
+    const png = await sharp({
+      create: { width: 16, height: 16, channels: 3, background: '#7f1d1d' },
+    })
+      .png()
+      .toBuffer()
+    const form = new FormData()
+    form.append('photo', new Blob([new Uint8Array(png)], { type: 'image/png' }), 'kurti.png')
+    form.append('text', 'notun kurti, M 3 ta L 2 ta')
+    const res = await app.request('/api/command', {
+      method: 'POST',
+      headers: { cookie },
+      body: form,
+    })
+    expect((await res.json()).replies[0].text).toBe('Dam koto rakhbo?')
+    const said = String(f.seen[0]!.messages.at(-1)!.content)
+    expect(said).toContain('sent a product photo')
+    expect(said).toContain('notun kurti, M 3 ta L 2 ta')
+
+    const bad = new FormData()
+    bad.append('photo', new Blob(['x'], { type: 'text/plain' }), 'notes.txt')
+    expect(
+      (await app.request('/api/command', { method: 'POST', headers: { cookie }, body: bad }))
+        .status,
+    ).toBe(400)
   })
 })

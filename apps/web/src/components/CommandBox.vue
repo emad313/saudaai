@@ -14,7 +14,7 @@ type Reply = {
   failed: boolean
 }
 type Entry =
-  | { id: number; who: 'owner'; text: string }
+  | { id: number; who: 'owner'; text: string; image?: string }
   | { id: number; who: 'assistant'; text: string; choices?: string[] }
   | { id: number; who: 'media'; url: string }
   | { id: number; who: 'approval'; item: Pending }
@@ -60,6 +60,47 @@ async function ask(text: string) {
     busy.value = false
     scroll()
   }
+}
+
+const picker = ref<HTMLInputElement | null>(null)
+
+// A product photo with the typed text as its caption (price, sizes): becomes a draft product in the store.
+async function sendPhoto(file: File) {
+  if (busy.value) return
+  if (!file.type.startsWith('image/')) {
+    error.value = 'That file is not an image.'
+    return
+  }
+  error.value = ''
+  const caption = draft.value.trim()
+  entries.value.push({ id: seq++, who: 'owner', text: caption, image: URL.createObjectURL(file) })
+  draft.value = ''
+  const form = new FormData()
+  form.append('photo', file, file.name || 'photo.jpg')
+  if (caption) form.append('text', caption)
+  busy.value = true
+  scroll()
+  try {
+    take(await api<Reply>('/api/command', { method: 'POST', body: form }), false)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+    scroll()
+  }
+}
+
+function onPick(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (file) sendPhoto(file)
+  ;(e.target as HTMLInputElement).value = ''
+}
+
+function onPaste(e: ClipboardEvent) {
+  const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+  if (!file) return
+  e.preventDefault()
+  sendPhoto(file)
 }
 
 let recorder: MediaRecorder | null = null
@@ -153,12 +194,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           </div>
         </div>
         <template v-for="e in entries" :key="e.id">
-          <p
+          <div
             v-if="e.who === 'owner'"
-            class="max-w-[85%] self-end rounded-2xl rounded-br-md bg-ink px-3.5 py-2 whitespace-pre-wrap text-white"
+            class="max-w-[85%] self-end overflow-hidden rounded-2xl rounded-br-md bg-ink text-white"
           >
-            {{ e.text }}
-          </p>
+            <img v-if="e.image" :src="e.image" alt="" class="max-h-56 w-full object-cover" />
+            <p v-if="e.text" class="px-3.5 py-2 whitespace-pre-wrap">{{ e.text }}</p>
+          </div>
           <div
             v-else-if="e.who === 'assistant'"
             class="max-w-[90%] self-start rounded-2xl rounded-bl-md bg-white px-3.5 py-2 shadow-card"
@@ -196,10 +238,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <input
           v-model="draft"
           class="field rounded-full"
-          placeholder="Write or speak a command"
+          placeholder="Write, speak, or add a product photo"
           aria-label="Command"
           :disabled="busy"
+          @paste="onPaste"
         />
+        <input ref="picker" type="file" accept="image/*" class="hidden" @change="onPick" />
+        <button
+          type="button"
+          class="grid size-10 shrink-0 place-items-center rounded-full border border-line text-muted hover:text-ink"
+          aria-label="Add a product photo"
+          :disabled="busy"
+          @click="picker?.click()"
+        >
+          <AppIcon name="image" />
+        </button>
         <button
           type="button"
           class="grid size-10 shrink-0 place-items-center rounded-full border transition-colors"
