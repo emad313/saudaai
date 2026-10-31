@@ -9,13 +9,16 @@ import { normalize, tokens } from './text.ts'
 type Product = typeof products.$inferSelect
 type Variant = typeof variants.$inferSelect
 
+export const available = (v: Pick<Variant, 'stock' | 'reserved'>) =>
+  v.stock === null ? null : v.stock - v.reserved
+
 function variantView(v: Variant) {
   return {
     variantId: v.id,
     size: v.size,
     color: v.color,
     price: formatTaka(v.pricePoisha),
-    available: v.stock - v.reserved,
+    available: available(v),
   }
 }
 
@@ -188,7 +191,10 @@ export async function adjustStock(
   ctx: Ctx,
   args: { variantId: string; delta: number; reason: string },
 ) {
-  const { p } = await requireVariant(ctx, args.variantId)
+  const { p, v: before } = await requireVariant(ctx, args.variantId)
+  if (before.stock === null) {
+    throw new ToolError('untracked', `the store does not track stock for ${p.name}`)
+  }
   const res = await ctx.db
     .update(variants)
     .set({ stock: sql`${variants.stock} + ${args.delta}` })
@@ -202,7 +208,7 @@ export async function adjustStock(
     const { v } = await requireVariant(ctx, args.variantId)
     throw new ToolError(
       'stock_negative',
-      `stock would drop to ${v.stock + args.delta} but ${v.reserved} are reserved by open orders`,
+      `stock would drop to ${(v.stock ?? 0) + args.delta} but ${v.reserved} are reserved by open orders`,
     )
   }
   const { v } = await requireVariant(ctx, args.variantId)

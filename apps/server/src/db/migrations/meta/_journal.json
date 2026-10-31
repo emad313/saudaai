@@ -15,6 +15,13 @@
       "when": 1793085735799,
       "tag": "0001_media_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793446287397,
+      "tag": "0002_stores",
+      "breakpoints": true
     }
   ]
 }

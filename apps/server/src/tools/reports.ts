@@ -99,7 +99,7 @@ export async function lowStock(ctx: Ctx, threshold = 2) {
     )
   return rows.map((r) => ({
     item: [r.name, r.size, r.color].filter(Boolean).join(' '),
-    available: r.stock - r.reserved,
+    available: (r.stock ?? 0) - r.reserved,
   }))
 }
 

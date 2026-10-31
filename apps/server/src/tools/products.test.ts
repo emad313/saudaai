@@ -46,12 +46,12 @@ describe('adjustStock', () => {
     const { matches } = await findProducts(t.ctx(), { query: 'tote bag' })
     const v = matches[0]!.variants[0]!
     const up = await adjustStock(t.ctx(), { variantId: v.variantId, delta: 5, reason: 'new lot' })
-    expect(up.available).toBe(v.available + 5)
+    expect(up.available).toBe(v.available! + 5)
     await expect(
       adjustStock(t.ctx(), { variantId: v.variantId, delta: -1000, reason: 'oops' }),
     ).rejects.toMatchObject({ code: 'stock_negative' })
     const p = await getProduct(t.ctx(), { productId: matches[0]!.productId })
-    expect(p.variants[0]!.available).toBe(v.available + 5)
+    expect(p.variants[0]!.available).toBe(v.available! + 5)
   })
 })
 

@@ -54,7 +54,7 @@ async function reserve(tx: Tx, shopId: string, line: LineInput) {
     const label = [row.p.name, row.v.size, row.v.color].filter(Boolean).join(' ')
     throw new ToolError(
       'out_of_stock',
-      `${label}: asked ${line.qty}, only ${row.v.stock - row.v.reserved} available`,
+      `${label}: asked ${line.qty}, only ${(row.v.stock ?? 0) - row.v.reserved} available`,
     )
   }
   return {

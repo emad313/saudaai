@@ -33,6 +33,8 @@ const schema = z.object({
   META_SAM_MODEL: optional,
   META_IMAGE_MODEL: optional,
 
+  STORE_SECRET_KEY: optional,
+
   TELEGRAM_BOT_TOKEN: optional,
   TELEGRAM_MODE: z.enum(['polling', 'webhook']).default('polling'),
   TELEGRAM_WEBHOOK_SECRET: optional,

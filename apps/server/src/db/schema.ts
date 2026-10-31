@@ -31,6 +31,28 @@ export const shops = sqliteTable('shops', {
   telegramChatId: text('telegram_chat_id'),
   linkCode: text('link_code').notNull(),
   orderSeq: integer('order_seq').notNull().default(1000),
+  publicKey: text('public_key').unique(),
+  createdAt: createdAt(),
+})
+
+export const storeKinds = ['builtin', 'shopify', 'woocommerce', 'custom'] as const
+export type StoreKind = (typeof storeKinds)[number]
+
+export const stores = sqliteTable('stores', {
+  id: id(),
+  shopId: text('shop_id')
+    .notNull()
+    .unique()
+    .references(() => shops.id),
+  kind: text('kind', { enum: storeKinds }).notNull(),
+  name: text('name').notNull(),
+  baseUrl: text('base_url'),
+  credentials: text('credentials'),
+  webhookSecret: text('webhook_secret'),
+  currency: text('currency').notNull().default('BDT'),
+  status: text('status', { enum: ['connected', 'error', 'syncing'] }).notNull(),
+  lastSyncAt: integer('last_sync_at'),
+  lastError: text('last_error'),
   createdAt: createdAt(),
 })
 
@@ -66,9 +88,15 @@ export const products = sqliteTable(
     basePricePoisha: integer('base_price_poisha').notNull(),
     status: text('status', { enum: ['draft', 'active', 'archived'] }).notNull(),
     imageId: text('image_id').references(() => media.id),
+    imageUrl: text('image_url'),
+    storeId: text('store_id'),
+    externalId: text('external_id'),
     createdAt: createdAt(),
   },
-  (t) => [index('products_shop_idx').on(t.shopId, t.status)],
+  (t) => [
+    index('products_shop_idx').on(t.shopId, t.status),
+    uniqueIndex('products_external_idx').on(t.storeId, t.externalId),
+  ],
 )
 
 export const variants = sqliteTable(
@@ -81,11 +109,15 @@ export const variants = sqliteTable(
     size: text('size'),
     color: text('color'),
     pricePoisha: integer('price_poisha').notNull(),
-    stock: integer('stock').notNull().default(0),
+    // null means the connected store does not track inventory for this variant
+    stock: integer('stock').default(0),
     reserved: integer('reserved').notNull().default(0),
+    externalId: text('external_id'),
+    sku: text('sku'),
   },
   (t) => [
     index('variants_product_idx').on(t.productId),
+    index('variants_external_idx').on(t.externalId),
     check(
       'variants_stock_check',
       sql`${t.stock} >= 0 and ${t.reserved} >= 0 and ${t.reserved} <= ${t.stock}`,
@@ -112,7 +144,7 @@ export const customers = sqliteTable(
 
 export const orderStatuses = ['draft', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const
 export const paymentStatuses = ['unpaid', 'partial', 'paid'] as const
-export const orderSources = ['seller_voice', 'seller_text', 'customer_chat'] as const
+export const orderSources = ['seller_voice', 'seller_text', 'customer_chat', 'store'] as const
 
 export const orders = sqliteTable(
   'orders',
@@ -137,6 +169,10 @@ export const orders = sqliteTable(
     paidPoisha: integer('paid_poisha').notNull().default(0),
     note: text('note'),
     source: text('source', { enum: orderSources }).notNull(),
+    storeId: text('store_id'),
+    externalId: text('external_id'),
+    externalNumber: text('external_number'),
+    adminUrl: text('admin_url'),
     createdAt: createdAt(),
     updatedAt: integer('updated_at').notNull(),
   },
@@ -187,7 +223,13 @@ export const expenses = sqliteTable('expenses', {
   createdAt: createdAt(),
 })
 
-export const channels = ['telegram_seller', 'messenger', 'whatsapp', 'webchat'] as const
+export const channels = [
+  'telegram_seller',
+  'messenger',
+  'whatsapp',
+  'webchat',
+  'instagram',
+] as const
 export type Channel = (typeof channels)[number]
 
 export const conversations = sqliteTable(
@@ -204,6 +246,7 @@ export const conversations = sqliteTable(
     lastInboundAt: integer('last_inbound_at').notNull(),
     pausedUntil: integer('paused_until'),
     failures: integer('failures').notNull().default(0),
+    meta: text('meta', { mode: 'json' }).$type<{ pageUrl?: string; productId?: string }>(),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('conversations_user_idx').on(t.shopId, t.channel, t.externalUserId)],

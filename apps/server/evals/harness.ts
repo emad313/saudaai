@@ -170,31 +170,29 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
     const cust = await customerByName(db, s.staleChat.customer)
     const at = now - s.staleChat.hoursAgo * 60 * 60 * 1000
     const ext = `ext_${newId()}`
-    await db
-      .insert(conversations)
-      .values({
-        id: newId(),
-        shopId: shop.id,
-        channel: s.staleChat.channel,
-        externalUserId: ext,
-        customerId: cust.id,
-        lastInboundAt: at,
-        createdAt: at,
-      })
-    await db
-      .insert(customerIdentities)
-      .values({
-        id: newId(),
-        customerId: cust.id,
-        channel: s.staleChat.channel,
-        externalUserId: ext,
-        createdAt: at,
-      })
+    await db.insert(conversations).values({
+      id: newId(),
+      shopId: shop.id,
+      channel: s.staleChat.channel,
+      externalUserId: ext,
+      customerId: cust.id,
+      lastInboundAt: at,
+      createdAt: at,
+    })
+    await db.insert(customerIdentities).values({
+      id: newId(),
+      customerId: cust.id,
+      channel: s.staleChat.channel,
+      externalUserId: ext,
+      createdAt: at,
+    })
   }
 
   const stockKeys = Object.keys(c.expect.stock ?? {})
   const before = new Map(
-    await Promise.all(stockKeys.map(async (k) => [k, (await variantByKey(db, k)).stock] as const)),
+    await Promise.all(
+      stockKeys.map(async (k) => [k, (await variantByKey(db, k)).stock ?? 0] as const),
+    ),
   )
   const [baseline] = await db.select({ n: sql<number>`max(${orders.number})` }).from(orders)
   const lastNumber = Number(baseline?.n ?? 0)
@@ -203,16 +201,14 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
     const conv = await sellerConversation(deps, shop.id, 'eval')
     const conversationId = conv.id
     for (const [i, h] of c.history.entries()) {
-      await db
-        .insert(messages)
-        .values({
-          id: newId(),
-          conversationId,
-          role: h.role === 'agent' ? 'agent' : 'seller',
-          kind: 'text',
-          text: h.text,
-          createdAt: now - 1000 * (c.history.length - i),
-        })
+      await db.insert(messages).values({
+        id: newId(),
+        conversationId,
+        role: h.role === 'agent' ? 'agent' : 'seller',
+        kind: 'text',
+        text: h.text,
+        createdAt: now - 1000 * (c.history.length - i),
+      })
     }
     await db.insert(messages).values({
       id: newId(),
@@ -227,39 +223,33 @@ export async function runCase(c: EvalCase, makeModels: (db: Db) => Models): Prom
   } else if (c.channel === 'webchat') {
     const conversationId = newId()
     const customerId = s.customer ? (await customerByName(db, s.customer)).id : null
-    await db
-      .insert(conversations)
-      .values({
-        id: conversationId,
-        shopId: shop.id,
-        channel: 'webchat',
-        externalUserId: `web_${conversationId}`,
-        customerId,
-        lastInboundAt: now,
-        createdAt: now,
-      })
+    await db.insert(conversations).values({
+      id: conversationId,
+      shopId: shop.id,
+      channel: 'webchat',
+      externalUserId: `web_${conversationId}`,
+      customerId,
+      lastInboundAt: now,
+      createdAt: now,
+    })
     for (const [i, h] of c.history.entries()) {
-      await db
-        .insert(messages)
-        .values({
-          id: newId(),
-          conversationId,
-          role: h.role === 'agent' ? 'agent' : 'customer',
-          kind: 'text',
-          text: h.text,
-          createdAt: now - 1000 * (c.history.length - i),
-        })
-    }
-    await db
-      .insert(messages)
-      .values({
+      await db.insert(messages).values({
         id: newId(),
         conversationId,
-        role: 'customer',
+        role: h.role === 'agent' ? 'agent' : 'customer',
         kind: 'text',
-        text: input,
-        createdAt: now,
+        text: h.text,
+        createdAt: now - 1000 * (c.history.length - i),
       })
+    }
+    await db.insert(messages).values({
+      id: newId(),
+      conversationId,
+      role: 'customer',
+      kind: 'text',
+      text: input,
+      createdAt: now,
+    })
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, conversationId))
     await runTurn(deps, { shop, actor: 'customer', conversation: conv!, inputKind: 'text' })
   } else {
@@ -406,7 +396,7 @@ async function check(c: EvalCase, st: State): Promise<string[]> {
       out.push(`order #${number} paid ${(o?.paidPoisha ?? 0) / 100}, expected ${paid}`)
   }
   for (const [key, delta] of Object.entries(e.stock ?? {})) {
-    const now = (await variantByKey(db, key)).stock
+    const now = (await variantByKey(db, key)).stock ?? 0
     const was = st.before.get(key)!
     if (now - was !== delta) out.push(`stock ${key} changed by ${now - was}, expected ${delta}`)
   }
@@ -451,7 +441,7 @@ async function check(c: EvalCase, st: State): Promise<string[]> {
   }
   if (e.replyMentionsAvailable) {
     const v = await variantByKey(db, e.replyMentionsAvailable)
-    const n = v.stock - v.reserved
+    const n = (v.stock ?? 0) - v.reserved
     if (!has(reply, String(n)) && !reply.includes(bangla(n)))
       out.push(`reply does not mention ${n} available`)
   }

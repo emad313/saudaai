@@ -218,6 +218,7 @@ export async function seedDemoShop(db: Db, now = Date.now(), slug = 'nusrats-clo
     feedMuted: false,
     telegramChatId: null,
     linkCode: newId(),
+    publicKey: `${newId()}${newId()}`,
     orderSeq: 1000,
     createdAt: now - 30 * 24 * hour,
   }

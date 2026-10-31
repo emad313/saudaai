@@ -4,7 +4,7 @@ import { messages, products } from '../db/schema.ts'
 import type { ChatMessage } from '../models/chat.ts'
 import type { Ctx } from '../tools/ctx.ts'
 import { listOrders } from '../tools/orders.ts'
-import { loadVariants } from '../tools/products.ts'
+import { available, loadVariants } from '../tools/products.ts'
 
 export async function catalogBlock(ctx: Ctx) {
   const statuses = ctx.actor === 'customer' ? (['active'] as const) : (['active', 'draft'] as const)
@@ -22,7 +22,7 @@ export async function catalogBlock(ctx: Ctx) {
     const vs = (byProduct.get(p.id) ?? [])
       .map(
         (v) =>
-          `${v.id}:${[v.size, v.color].filter(Boolean).join('/') || 'one'}=${v.stock - v.reserved}`,
+          `${v.id}:${[v.size, v.color].filter(Boolean).join('/') || 'one'}=${available(v) ?? 'in stock'}`,
       )
       .join(' ')
     const draft = p.status === 'draft' ? ' (draft)' : ''

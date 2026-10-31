@@ -119,7 +119,7 @@ describe('order lifecycle', () => {
     const before = await stockOf(vid)
     await updateOrderStatus(t.ctx(), { orderId: order.orderId, status: 'confirmed' })
     await updateOrderStatus(t.ctx(), { orderId: order.orderId, status: 'shipped' })
-    expect(await stockOf(vid)).toEqual({ stock: before.stock - 2, reserved: before.reserved - 2 })
+    expect(await stockOf(vid)).toEqual({ stock: before.stock! - 2, reserved: before.reserved - 2 })
   })
 
   it('refuses impossible transitions', async () => {

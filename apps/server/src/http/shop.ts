@@ -13,7 +13,7 @@ import { newId } from '../db/ids.ts'
 import { conversations, messages, products, shops } from '../db/schema.ts'
 import { env } from '../env.ts'
 import type { Inbox } from '../inbox.ts'
-import { loadVariants } from '../tools/products.ts'
+import { available, loadVariants } from '../tools/products.ts'
 import { body } from './body.ts'
 
 const cookie = 'wsid'
@@ -103,7 +103,7 @@ export function shopRoutes(deps: Deps, inbox: Inbox) {
           size: v.size,
           color: v.color,
           pricePoisha: v.pricePoisha,
-          available: v.stock - v.reserved,
+          available: available(v),
         })),
       })),
     })
