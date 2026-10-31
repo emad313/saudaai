@@ -19,7 +19,9 @@
     "eval": "pnpm --filter server eval",
     "spike": "pnpm --filter server spike",
     "webhooks:set": "pnpm --filter server webhooks:set",
-    "start": "pnpm --filter server start"
+    "start": "pnpm --filter server start",
+    "demo": "pnpm --filter @saudaai/demo-store dev",
+    "demo:link": "pnpm --filter server demo:link"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

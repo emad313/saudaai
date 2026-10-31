@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createStoreApp, openDb } from '@saudaai/demo-store'
 import { fakeShopify, shopifyDomain } from '../test/shopify.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { testShop } from '../test/shop.ts'
@@ -18,7 +19,7 @@ type Setup = {
   forged: { headers: Record<string, string>; raw: string }
 }
 
-const kinds: Record<string, () => Setup> = {
+const kinds: Record<string, () => Setup | Promise<Setup>> = {
   custom: () => {
     const site = fakeStore(demoProducts())
     return {
@@ -39,6 +40,30 @@ const kinds: Record<string, () => Setup> = {
         ).connector!,
       unknownId: 'nope',
       orderLine: 'v1',
+      forged: { headers: { 'x-saudaai-signature': 'sha256=00' }, raw: '[]' },
+    }
+  },
+  'demo-store': async () => {
+    const store = createStoreApp(await openDb(':memory:'), { token: 'store-token-1', pageSize: 5 })
+    return {
+      fetch: (async (input: string | URL | Request, init?: RequestInit) =>
+        store.fetch(new Request(String(input), init))) as typeof fetch,
+      connect: async (shop, db) =>
+        (
+          await connectStore(
+            db,
+            shop,
+            {
+              kind: 'custom',
+              baseUrl: 'https://demo-store.test',
+              credentials: { token: 'store-token-1' },
+              webhookSecret: 'whsec',
+            },
+            Date.now(),
+          )
+        ).connector!,
+      unknownId: 'nope',
+      orderLine: 'maroon-kurti-m',
       forged: { headers: { 'x-saudaai-signature': 'sha256=00' }, raw: '[]' },
     }
   },
@@ -77,7 +102,7 @@ for (const [kind, make] of Object.entries(kinds)) {
 
     beforeEach(async () => {
       const t = await testShop()
-      setup = make()
+      setup = await make()
       vi.stubGlobal('fetch', setup.fetch)
       connector = await setup.connect(t.shop, t.db)
     })

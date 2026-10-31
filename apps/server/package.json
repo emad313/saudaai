@@ -12,7 +12,8 @@
     "db:seed": "tsx --env-file-if-exists=../../.env scripts/seed.ts",
     "eval": "tsx --env-file-if-exists=../../.env evals/run.ts",
     "spike": "tsx --env-file-if-exists=../../.env scripts/spike.ts",
-    "webhooks:set": "tsx --env-file-if-exists=../../.env scripts/webhooks.ts"
+    "webhooks:set": "tsx --env-file-if-exists=../../.env scripts/webhooks.ts",
+    "demo:link": "tsx --env-file-if-exists=../../.env scripts/link-store.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-bengali": "^5.3.0",
@@ -33,6 +34,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@saudaai/demo-store": "workspace:*",
     "drizzle-kit": "^0.31.11",
     "pino-pretty": "^13.2.0",
     "tsx": "^4.23.15"

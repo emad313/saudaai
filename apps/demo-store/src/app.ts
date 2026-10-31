@@ -1,0 +1,246 @@
+import { createHmac, randomUUID } from 'node:crypto'
+import { Hono, type Context } from 'hono'
+import { z } from 'zod'
+import { loadProducts, type Db, type Product } from './db.ts'
+import { adminPage, productPage, shopPage } from './site.ts'
+
+export { openDb } from './db.ts'
+
+export type StoreConfig = {
+  token: string
+  saudaai?: { url: string; shopId: string; webhookSecret: string; publicKey?: string }
+  pageSize?: number
+}
+
+const orderInput = z.object({
+  customer: z.object({
+    name: z.string().min(1),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    address: z.string().optional(),
+    area: z.string().optional(),
+  }),
+  lines: z
+    .array(z.object({ variantExternalId: z.string(), qty: z.number().int().positive() }))
+    .min(1),
+  shippingPoisha: z.number().int().min(0),
+  paymentMethod: z.string(),
+  note: z.string().optional(),
+  tags: z.array(z.string()),
+})
+
+const orderChange = z.object({
+  status: z.enum(['confirmed', 'shipped', 'delivered', 'cancelled']).optional(),
+  paidPoisha: z.number().int().min(0).optional(),
+  note: z.string().optional(),
+})
+
+function external(p: Product) {
+  return {
+    externalId: p.id,
+    name: p.name,
+    category: p.category,
+    description: p.description,
+    status: p.status,
+    variants: p.variants.map((v) => ({
+      externalId: v.id,
+      ...(v.size ? { size: v.size } : {}),
+      ...(v.color ? { color: v.color } : {}),
+      ...(v.sku ? { sku: v.sku } : {}),
+      pricePoisha: v.pricePoisha,
+      stock: v.stock,
+    })),
+  }
+}
+
+export function createStoreApp(db: Db, cfg: StoreConfig) {
+  const app = new Hono()
+  const pageSize = cfg.pageSize ?? 10
+
+  // Tell SaudaAI what changed so its copy stays current between pulls.
+  async function notify(events: unknown[]) {
+    if (!cfg.saudaai || !events.length) return
+    const raw = JSON.stringify(events)
+    const sig = createHmac('sha256', cfg.saudaai.webhookSecret).update(raw).digest('hex')
+    await fetch(`${cfg.saudaai.url}/webhooks/store/${cfg.saudaai.shopId}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-saudaai-signature': `sha256=${sig}` },
+      body: raw,
+    }).catch((err: Error) => console.error(`webhook to saudaai failed: ${err.message}`))
+  }
+
+  const api = new Hono()
+  api.use(async (c, next) => {
+    if (c.req.header('authorization') !== `Bearer ${cfg.token}`)
+      return c.json({ error: 'bad token' }, 401)
+    await next()
+  })
+
+  api.get('/info', (c) => c.json({ name: "Nusrat's Closet", currency: 'BDT' }))
+
+  api.get('/products', async (c) => {
+    const after = Number(c.req.query('cursor') ?? -1)
+    const rows = await loadProducts(db, 'position > ? and position <= ?', [after, after + pageSize])
+    const { rows: last } = await db.execute('select max(position) as n from products')
+    const end = after + pageSize
+    return c.json({
+      products: rows.map(external),
+      ...(end < Number(last[0]!.n) ? { next: String(end) } : {}),
+    })
+  })
+
+  api.get('/products/:id', async (c) => {
+    const [p] = await loadProducts(db, 'id = ?', [c.req.param('id')])
+    return p ? c.json(external(p)) : c.json({ error: 'not found' }, 404)
+  })
+
+  api.post('/orders', async (c) => {
+    const input = orderInput.safeParse(await c.req.json())
+    if (!input.success) return c.json({ error: input.error.issues[0]?.message }, 400)
+    const o = input.data
+    const tx = await db.transaction('write')
+    try {
+      let items = 0
+      const touched: string[] = []
+      for (const l of o.lines) {
+        const { rows } = await tx.execute({
+          sql: 'select * from variants where id = ?',
+          args: [l.variantExternalId],
+        })
+        const v = rows[0]
+        if (!v) throw new Error(`no variant ${l.variantExternalId}`)
+        if (v.stock !== null && Number(v.stock) < l.qty)
+          throw new Error(`only ${v.stock} left of ${v.id}`)
+        if (v.stock !== null) {
+          await tx.execute({
+            sql: 'update variants set stock = stock - ? where id = ?',
+            args: [l.qty, String(v.id)],
+          })
+          touched.push(String(v.id))
+        }
+        items += Number(v.price_poisha) * l.qty
+      }
+      const { rows: count } = await tx.execute('select count(*) as n from orders')
+      const id = randomUUID()
+      const number = `NC-${1001 + Number(count[0]!.n)}`
+      const total = items + o.shippingPoisha
+      await tx.execute({
+        sql: 'insert into orders values (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+        args: [
+          id,
+          number,
+          JSON.stringify(o.customer),
+          JSON.stringify(o.lines),
+          o.shippingPoisha,
+          total,
+          'confirmed',
+          o.paymentMethod,
+          o.note ?? null,
+          o.tags.join(','),
+          Date.now(),
+        ],
+      })
+      await tx.commit()
+      const stock = await db.execute({
+        sql: `select id, stock from variants where id in (${touched.map(() => '?').join(',') || "''"})`,
+        args: touched,
+      })
+      void notify(
+        stock.rows.map((r) => ({
+          type: 'stock',
+          variantExternalId: String(r.id),
+          stock: Number(r.stock),
+        })),
+      )
+      return c.json({
+        externalId: id,
+        number,
+        totalPoisha: total,
+        adminUrl: `${new URL(c.req.url).origin}/admin#${number}`,
+      })
+    } catch (err) {
+      await tx.rollback()
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 409)
+    } finally {
+      tx.close()
+    }
+  })
+
+  api.patch('/orders/:id', async (c) => {
+    const change = orderChange.safeParse(await c.req.json())
+    if (!change.success) return c.json({ error: change.error.issues[0]?.message }, 400)
+    const { rows } = await db.execute({
+      sql: 'select * from orders where id = ?',
+      args: [c.req.param('id')],
+    })
+    const order = rows[0]
+    if (!order) return c.json({ error: 'not found' }, 404)
+    const { status, paidPoisha, note } = change.data
+    if (status === 'cancelled' && order.status !== 'cancelled') {
+      const lines = JSON.parse(String(order.lines)) as { variantExternalId: string; qty: number }[]
+      await db.batch(
+        lines.map((l) => ({
+          sql: 'update variants set stock = stock + ? where id = ? and stock is not null',
+          args: [l.qty, l.variantExternalId],
+        })),
+        'write',
+      )
+    }
+    await db.execute({
+      sql: `update orders set status = coalesce(?, status), paid_poisha = coalesce(?, paid_poisha),
+        note = case when ? is null then note else trim(coalesce(note, '') || char(10) || ?) end where id = ?`,
+      args: [status ?? null, paidPoisha ?? null, note ?? null, note ?? null, String(order.id)],
+    })
+    return c.json({ ok: true })
+  })
+
+  app.route('/saudaai', api)
+
+  const adminKey = (c: Context) => c.req.query('key') === cfg.token
+
+  app.get('/admin', async (c) => {
+    if (!adminKey(c)) return c.text('add ?key=<store token>', 401)
+    const { rows } = await db.execute(
+      'select number, customer, total_poisha, paid_poisha, status, tags from orders order by created_at desc limit 20',
+    )
+    return c.html(adminPage(await loadProducts(db), rows, cfg.token))
+  })
+
+  app.post('/admin/variant', async (c) => {
+    if (!adminKey(c)) return c.text('add ?key=<store token>', 401)
+    const form = await c.req.parseBody()
+    const taka = Number(form.taka)
+    const stock = form.stock === '' ? null : Number(form.stock)
+    if (
+      !Number.isInteger(taka) ||
+      taka <= 0 ||
+      (stock !== null && (!Number.isInteger(stock) || stock < 0))
+    ) {
+      return c.text('price must be whole taka and stock a whole number', 400)
+    }
+    await db.execute({
+      sql: 'update variants set price_poisha = ?, stock = ? where id = ?',
+      args: [taka * 100, stock, String(form.id)],
+    })
+    const [p] = await loadProducts(db, 'id = (select product_id from variants where id = ?)', [
+      String(form.id),
+    ])
+    if (p) await notify([{ type: 'product.upsert', product: external(p) }])
+    return c.redirect(`/admin?key=${encodeURIComponent(cfg.token)}`)
+  })
+
+  const widget = (productId?: string) =>
+    cfg.saudaai?.publicKey
+      ? { src: `${cfg.saudaai.url}/widget.js`, shop: cfg.saudaai.publicKey, product: productId }
+      : null
+
+  app.get('/', async (c) => c.html(shopPage(await loadProducts(db, "status = 'active'"), widget())))
+
+  app.get('/p/:id', async (c) => {
+    const [p] = await loadProducts(db, "id = ? and status = 'active'", [c.req.param('id')])
+    if (!p) return c.notFound()
+    return c.html(productPage(p, widget(p.id)))
+  })
+
+  return app
+}
