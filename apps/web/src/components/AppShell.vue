@@ -21,6 +21,7 @@ const groups = [
     links: [
       { to: '/', label: 'Today', icon: 'today' },
       { to: '/approvals', label: 'Approvals', icon: 'approvals' },
+      { to: '/analytics', label: 'Analytics', icon: 'chart' },
     ],
   },
   {

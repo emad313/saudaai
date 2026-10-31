@@ -29,6 +29,7 @@ const paths = {
   minus: 'M5 12h14',
   file: 'M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6',
   chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
+  chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
   down: 'M6 9l6 6 6-6',
   truck:

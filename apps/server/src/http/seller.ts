@@ -45,6 +45,7 @@ import {
 } from '../stores/index.ts'
 import { pullStore } from '../stores/sync.ts'
 import { StoreError } from '../stores/types.ts'
+import { analytics } from '../tools/analytics.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
@@ -153,6 +154,16 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       pending,
       failed: turn.failed,
     })
+  })
+
+  app.get('/analytics', async (c) => {
+    const day = /^\d{4}-\d{2}-\d{2}$/
+    const from = c.req.query('from')
+    const to = c.req.query('to')
+    if ((from && !day.test(from)) || (to && !day.test(to))) {
+      throw new HTTPException(400, { message: 'dates are YYYY-MM-DD' })
+    }
+    return c.json(await analytics(ctx(c.get('shop')), { from, to }))
   })
 
   app.get('/store', async (c) => c.json(await storeView(c.get('shop'))))

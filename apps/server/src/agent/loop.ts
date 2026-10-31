@@ -270,7 +270,11 @@ export async function runTurn(
   const issue = checkCustomerReply(final, turn.facts, said)
   if (issue) {
     log.info({ turnId: ctx.turnId, issue }, 'customer reply held for seller')
-    await propose(ctx, 'customer_reply', { conversationId: conversation.id, text: final })
+    await propose(ctx, 'customer_reply', {
+      conversationId: conversation.id,
+      text: final,
+      reason: issue,
+    })
     await sendToCustomer(deps, conversation, { kind: 'text', text: holdingReply })
     result.heldForSeller = true
     result.reply = holdingReply

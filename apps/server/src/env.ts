@@ -21,6 +21,10 @@ const schema = z.object({
 
   AGENT_PROVIDER: z.enum(['meta', 'baseten']).default('meta'),
   MODEL_DAILY_CALL_LIMIT: z.coerce.number().int().positive().default(500),
+  // USD, only for the cost estimate in analytics
+  MODEL_PRICE_INPUT_PER_M: z.coerce.number().min(0).optional(),
+  MODEL_PRICE_OUTPUT_PER_M: z.coerce.number().min(0).optional(),
+  MODEL_PRICE_PER_IMAGE: z.coerce.number().min(0).optional(),
   BASETEN_API_KEY: optional,
   BASETEN_BASE_URL: z.string().default('https://inference.baseten.co/v1'),
   BASETEN_MODEL: z.string().default('meta-models/muse-spark-open-1026'),

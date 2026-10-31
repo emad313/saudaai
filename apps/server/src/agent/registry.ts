@@ -24,6 +24,7 @@ import {
   requireProduct,
   setProductStatus,
 } from '../tools/products.ts'
+import { analyticsForAgent } from '../tools/analytics.ts'
 import { dailySummary, salesReport } from '../tools/reports.ts'
 import { confirmationText, handoffReply, lineLabel, methodLabel, reminderText } from './copy.ts'
 import type { Conversation, Deps } from './deps.ts'
@@ -459,6 +460,18 @@ export const tools: ToolDef[] = [
     run: (ctx, a) => salesReport(ctx, a),
   }),
   tool({
+    name: 'analytics',
+    description:
+      'Shop analytics between two dates (YYYY-MM-DD, Dhaka time, default last 7 days): sales by day, by channel (messenger, whatsapp, webchat, instagram, telegram, store) and top products; how the assistant did (chats, reply time, handoffs, conversion); what customers asked for, what they wanted that the shop does not have, and sold-out asks; model cost. Use focus to get one part.',
+    schema: z.object({
+      from: date.optional(),
+      to: date.optional(),
+      focus: z.enum(['sales', 'agent', 'demand', 'cost']).optional(),
+    }),
+    expose: 'seller',
+    run: (ctx, a) => analyticsForAgent(ctx, a),
+  }),
+  tool({
     name: 'daily_summary',
     description: "Today's sales, top products, low stock, money due and draft orders waiting.",
     schema: z.object({}),
@@ -587,7 +600,11 @@ export const tools: ToolDef[] = [
   tool({
     name: 'customer_reply',
     description: 'A reply to a customer that the seller has to approve before it is sent.',
-    schema: z.object({ conversationId: id, text: z.string().min(1) }),
+    schema: z.object({
+      conversationId: id,
+      text: z.string().min(1),
+      reason: z.string().optional(),
+    }),
     expose: 'internal',
     guard: () => true,
     preview: async (_ctx, a) => `Send this reply to the customer?\n\n${a.text}`,
