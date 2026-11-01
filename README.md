@@ -14,6 +14,13 @@ SaudaAI is not another store. It connects to the store the seller already has (S
 
 Built with Meta's models for the Meta Global AI Developer Hackathon (Indie Developer track, "Build for Your World").
 
+## Try it
+
+- Website chat: open the demo store (link on the dashboard login page) and use the chat bubble bottom right. Ask in Bangla, Banglish or English, send a voice note, place an order.
+- Dashboard: read-only demo at the live URL; the Docs page there explains setup.
+- Owner bot on Telegram: [@saudaai_demo_bot](https://t.me/saudaai_demo_bot), linked to the demo shop's owner (shown in the video).
+- Messenger, WhatsApp and Instagram run in Meta development mode, so only app testers can message the shop; the video shows Messenger on a real phone.
+
 ## What it does
 
 **Connects to the seller's store**
@@ -239,6 +246,18 @@ The eval suite (`apps/server/evals/cases`) has 51 situations across orders, stoc
 Muse Spark Open has not been run (no Baseten key).
 
 ## Deploying
+
+SaudaAI is a long-running server (Telegram, webhooks, SQLite, Chromium for rendering), so it needs a container host with a disk, not a static or serverless host like Netlify or Vercel. Railway, Render (paid instance with a disk) and Fly.io all work from the Dockerfile.
+
+On Railway:
+
+1. New project > Deploy from GitHub repo > this repository. Railway builds the Dockerfile.
+2. Add a volume mounted at `/data`.
+3. Variables: everything from your `.env`, with `PUBLIC_BASE_URL` set to the Railway domain (Settings > Networking > Generate domain) and `TELEGRAM_MODE=webhook`. Keep `STORE_SECRET_KEY` the same once stores are connected.
+4. After the first deploy run `pnpm webhooks:set` locally with that `PUBLIC_BASE_URL`, and enter the printed callback URL in the Meta app.
+5. For the demo store add a second service from the same repo with start command `npx tsx src/index.ts`, root `/app/apps/demo-store`, its own volume at `/data` and `DEMO_STORE_DATABASE_URL=file:/data/demo-store.db`.
+
+With Docker anywhere else:
 
 ```bash
 docker build -t saudaai .
