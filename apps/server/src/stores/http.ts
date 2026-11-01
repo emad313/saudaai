@@ -16,15 +16,21 @@ export async function storeRequest(
   url: string,
   init: { method?: string; headers?: Record<string, string>; body?: unknown; timeoutMs?: number },
 ): Promise<Response> {
+  const raw = init.body instanceof FormData || init.body instanceof Uint8Array
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, {
       method: init.method ?? 'GET',
       headers: {
         accept: 'application/json',
-        ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(init.body === undefined || raw ? {} : { 'content-type': 'application/json' }),
         ...init.headers,
       },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body:
+        init.body === undefined
+          ? undefined
+          : raw
+            ? (init.body as BodyInit)
+            : JSON.stringify(init.body),
       signal: AbortSignal.timeout(init.timeoutMs ?? 20_000),
     }).catch((err: Error) => {
       throw new StoreError(`${new URL(url).host}: ${err.message}`)

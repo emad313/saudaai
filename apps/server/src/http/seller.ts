@@ -242,7 +242,13 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
             : {
                 kind: 'woocommerce',
                 baseUrl: p.baseUrl,
-                credentials: { consumerKey: p.consumerKey, consumerSecret: p.consumerSecret },
+                credentials: {
+                  consumerKey: p.consumerKey,
+                  consumerSecret: p.consumerSecret,
+                  ...(p.wpUser && p.wpAppPassword
+                    ? { wpUser: p.wpUser, wpAppPassword: p.wpAppPassword }
+                    : {}),
+                },
               }
     let refused: { topic: string; reason: string }[] = []
     try {

@@ -5,6 +5,7 @@ import { newId } from '../db/ids.ts'
 import { products, variants } from '../db/schema.ts'
 import { hasImage } from '../catalog/image.ts'
 import { env } from '../env.ts'
+import { fileName, loadMedia } from '../media/store.ts'
 import { catalogScope, storeFor } from '../stores/index.ts'
 import { applyProduct } from '../stores/sync.ts'
 import { StoreError } from '../stores/types.ts'
@@ -150,12 +151,16 @@ export async function createProductDraft(
       )
     }
     const rows = args.variants.length ? args.variants : [{ stock: 0 }]
+    const file = args.mediaId ? await loadMedia(ctx.db, args.mediaId) : null
     const made = await inStore(`add ${args.name}`, () =>
       store.connector!.createProduct!({
         name: args.name,
         category: args.category,
         status: 'draft',
         imageUrl: args.mediaId ? `${env.PUBLIC_BASE_URL}/media/${args.mediaId}` : undefined,
+        image: file
+          ? { bytes: file.bytes, mime: file.row.mime, name: fileName(args.mediaId!, file.row.mime) }
+          : undefined,
         variants: rows.map((v) => ({
           externalId: '',
           size: v.size,

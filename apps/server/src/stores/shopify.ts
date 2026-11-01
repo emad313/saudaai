@@ -9,6 +9,7 @@ import {
   type StoreConnector,
   type StoreEvent,
   type StoreOrder,
+  type Upload,
 } from './types.ts'
 
 const version = '2025-01'
@@ -222,6 +223,41 @@ export function shopifyConnector(
   function userErrors(result: { userErrors?: { message: string }[] } | null | undefined) {
     const first = result?.userErrors?.[0]
     if (first) throw new StoreError(`shopify: ${first.message}`)
+  }
+
+  // Shopify takes the image through a staged upload, so SaudaAI does not need a public address.
+  async function staged(image: Upload) {
+    const data = await gql<{
+      stagedUploadsCreate: {
+        stagedTargets: {
+          url: string
+          resourceUrl: string
+          parameters: { name: string; value: string }[]
+        }[]
+        userErrors: { message: string }[]
+      }
+    }>(
+      `mutation($input: [StagedUploadInput!]!) { stagedUploadsCreate(input: $input) { stagedTargets { url resourceUrl parameters { name value } } userErrors { message } } }`,
+      {
+        input: [
+          {
+            resource: 'IMAGE',
+            filename: image.name,
+            mimeType: image.mime,
+            httpMethod: 'POST',
+            fileSize: String(image.bytes.length),
+          },
+        ],
+      },
+    )
+    userErrors(data.stagedUploadsCreate)
+    const target = data.stagedUploadsCreate.stagedTargets[0]!
+    const form = new FormData()
+    for (const p of target.parameters) form.append(p.name, p.value)
+    form.append('file', new Blob([new Uint8Array(image.bytes)], { type: image.mime }), image.name)
+    const res = await storeRequest(target.url, { method: 'POST', body: form, timeoutMs: 60_000 })
+    if (!res.ok) throw await failure(res)
+    return target.resourceUrl
   }
 
   async function location() {
@@ -497,6 +533,7 @@ export function shopifyConnector(
         ...(sizes.length ? [{ name: 'Size', values: sizes.map((name) => ({ name })) }] : []),
         ...(colors.length ? [{ name: 'Color', values: colors.map((name) => ({ name })) }] : []),
       ]
+      const source = p.image ? await staged(p.image) : p.imageUrl
       const made = await gql<{
         productCreate: { product: { id: string } | null; userErrors: { message: string }[] }
       }>(
@@ -508,7 +545,7 @@ export function shopifyConnector(
             status: 'DRAFT',
             ...(options.length ? { productOptions: options } : {}),
           },
-          media: p.imageUrl ? [{ originalSource: p.imageUrl, mediaContentType: 'IMAGE' }] : [],
+          media: source ? [{ originalSource: source, mediaContentType: 'IMAGE' }] : [],
         },
       )
       userErrors(made.productCreate)

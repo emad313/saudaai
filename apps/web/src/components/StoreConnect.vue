@@ -34,6 +34,8 @@ const form = ref({
   baseUrl: '',
   consumerKey: '',
   consumerSecret: '',
+  wpUser: '',
+  wpAppPassword: '',
   token: '',
 })
 
@@ -92,6 +94,9 @@ function connect() {
             baseUrl: f.baseUrl.trim(),
             consumerKey: f.consumerKey.trim(),
             consumerSecret: f.consumerSecret.trim(),
+            ...(f.wpUser.trim() && f.wpAppPassword.trim()
+              ? { wpUser: f.wpUser.trim(), wpAppPassword: f.wpAppPassword.trim() }
+              : {}),
           }
         : { kind: 'custom', baseUrl: f.baseUrl.trim(), token: f.token.trim() }
   return run('connect', () => send<StoreView>('/api/store', 'PUT', body))
@@ -282,6 +287,26 @@ onMounted(load)
                   placeholder="cs_…"
                   autocomplete="off"
                   required
+              /></label>
+            </div>
+            <p class="text-sm text-muted">
+              Optional, for website banners and photo uploads: in WordPress open Users, your
+              profile, Application Passwords, and add one named SaudaAI.
+            </p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="block text-sm font-medium"
+                >WordPress username<input
+                  v-model="form.wpUser"
+                  class="field mt-1.5 font-normal"
+                  autocomplete="off"
+              /></label>
+              <label class="block text-sm font-medium"
+                >Application password<input
+                  v-model="form.wpAppPassword"
+                  type="password"
+                  class="field mt-1.5 font-normal"
+                  placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                  autocomplete="off"
               /></label>
             </div>
           </template>

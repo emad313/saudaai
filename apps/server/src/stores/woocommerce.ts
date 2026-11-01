@@ -8,6 +8,7 @@ import {
   type StoreConnector,
   type StoreEvent,
   type StoreOrder,
+  type Upload,
 } from './types.ts'
 
 type WooAttribute = { name: string; option?: string; options?: string[] }
@@ -156,6 +157,32 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
   const site = (row.baseUrl ?? '').replace(/\/$/, '')
   const base = `${site}/wp-json/wc/v3`
   const auth = `Basic ${Buffer.from(`${creds.consumerKey}:${creds.consumerSecret}`).toString('base64')}`
+  // WooCommerce keys do not cover WordPress media and posts; those need an application password.
+  const wpAuth =
+    creds.wpUser && creds.wpAppPassword
+      ? `Basic ${Buffer.from(`${creds.wpUser}:${creds.wpAppPassword}`).toString('base64')}`
+      : null
+
+  async function wp<T>(path: string, body: unknown, headers: Record<string, string> = {}) {
+    const res = await queued(row.id, () =>
+      storeRequest(`${site}/wp-json/wp/v2${path}`, {
+        method: 'POST',
+        body,
+        headers: { authorization: wpAuth!, ...headers },
+        timeoutMs: 60_000,
+      }),
+    )
+    if (!res.ok) throw await failure(res)
+    return (await res.json()) as T
+  }
+
+  async function upload(image: Upload) {
+    const media = await wp<{ id: number; source_url: string }>('/media', image.bytes, {
+      'content-type': image.mime,
+      'content-disposition': `attachment; filename="${image.name}"`,
+    })
+    return media
+  }
 
   async function call<T>(
     method: string,
@@ -352,7 +379,12 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
         name: p.name,
         type: variable ? 'variable' : 'simple',
         status: 'draft',
-        images: p.imageUrl ? [{ src: p.imageUrl }] : [],
+        images:
+          p.image && wpAuth
+            ? [{ id: (await upload(p.image)).id }]
+            : p.imageUrl
+              ? [{ src: p.imageUrl }]
+              : [],
         ...(variable
           ? { attributes }
           : {
@@ -382,6 +414,21 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
     async publishProduct(externalId) {
       await call('PUT', `/products/${externalId}`, { status: 'publish' })
     },
+
+    ...(wpAuth
+      ? {
+          async publishPost(post: { title: string; body: string; image?: Upload }) {
+            const media = post.image ? await upload(post.image) : null
+            const made = await wp<{ link: string }>('/posts', {
+              title: post.title,
+              content: `${media ? `<p><img src="${media.source_url}" alt=""></p>` : ''}<p>${post.body.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`)}</p>`,
+              status: 'publish',
+              ...(media ? { featured_media: media.id } : {}),
+            })
+            return { url: made.link }
+          },
+        }
+      : {}),
 
     async registerWebhooks(url) {
       const { data: existing } = await call<{ topic: string; delivery_url: string }[]>(

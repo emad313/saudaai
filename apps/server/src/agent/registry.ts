@@ -5,7 +5,7 @@ import { newId } from '../db/ids.ts'
 import { productImage } from '../catalog/image.ts'
 import { postToInstagram, postToPage } from '../channels/page.ts'
 import { env } from '../env.ts'
-import { loadMedia } from '../media/store.ts'
+import { fileName, loadMedia } from '../media/store.ts'
 import { storeFor } from '../stores/index.ts'
 import { StoreError } from '../stores/types.ts'
 import { conversations, customerIdentities, orders, orderStatuses } from '../db/schema.ts'
@@ -578,12 +578,18 @@ export const tools: ToolDef[] = [
           'this store does not take posts from SaudaAI, add the banner in the store admin',
         )
       }
-      if (!(await loadMedia(ctx.db, a.mediaId))) throw new ToolError('not_found', 'image not found')
+      const file = await loadMedia(ctx.db, a.mediaId)
+      if (!file) throw new ToolError('not_found', 'image not found')
       try {
         const r = await connector.publishPost({
           title: a.title,
           body: a.text,
           imageUrl: `${env.PUBLIC_BASE_URL}/media/${a.mediaId}`,
+          image: {
+            bytes: file.bytes,
+            mime: file.row.mime,
+            name: fileName(a.mediaId, file.row.mime),
+          },
         })
         await recordPost(ctx.db, {
           shopId: ctx.shop.id,

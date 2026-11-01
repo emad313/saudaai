@@ -19,6 +19,8 @@ export type ExternalProduct = {
   variants: ExternalVariant[]
 }
 
+export type Upload = { bytes: Buffer; mime: string; name: string }
+
 export type ExternalOrderInput = {
   customer: { name: string; phone?: string; email?: string; address?: string; area?: string }
   lines: { variantExternalId: string; qty: number }[]
@@ -79,13 +81,21 @@ export interface StoreConnector {
   getOrder(externalId: string): Promise<StoreOrder | null>
   listOrders(since: number, cursor?: string): Promise<{ orders: StoreOrder[]; next?: string }>
   adjustStock?(variantExternalId: string, delta: number): Promise<number>
-  createProduct?(p: Omit<ExternalProduct, 'externalId'>): Promise<ExternalProduct>
+  // image carries the bytes for stores that take an upload; imageUrl is the fallback they fetch.
+  createProduct?(
+    p: Omit<ExternalProduct, 'externalId'> & { image?: Upload },
+  ): Promise<ExternalProduct>
   publishProduct?(externalId: string): Promise<void>
   // Returns the topics the store refused, with its reason; the others are subscribed.
   registerWebhooks?(url: string): Promise<{ topic: string; reason: string }[]>
   // Where the customer can pay what is still due online; null when the store has no such link.
   paymentLink?(externalId: string): Promise<string | null>
-  publishPost?(post: { title: string; body: string; imageUrl: string }): Promise<{ url: string }>
+  publishPost?(post: {
+    title: string
+    body: string
+    imageUrl: string
+    image?: Upload
+  }): Promise<{ url: string }>
   parseWebhook(req: { headers: Record<string, string>; raw: string }): Promise<StoreEvent[]>
 }
 

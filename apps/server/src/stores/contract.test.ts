@@ -320,6 +320,28 @@ describe('shopify specifics', () => {
     })
   })
 
+  it('uploads the product photo to shopify instead of asking it to fetch a url', async () => {
+    const { shopify, connector } = await connect()
+    await connector.createProduct!({
+      name: 'Olive Panjabi',
+      category: 'panjabi',
+      imageUrl: 'http://localhost:8787/media/abc',
+      image: { bytes: Buffer.from('jpeg'), mime: 'image/jpeg', name: 'abc.jpg' },
+      status: 'draft',
+      variants: [{ externalId: '', size: 'M', pricePoisha: 180000, stock: 4 }],
+    })
+    expect(shopify.uploads).toEqual([
+      { url: 'https://shopify-staged-uploads.example/upload', fields: ['key', 'file'] },
+    ])
+    const create = shopify.ops.find((o) => o.op === 'productCreate')!.variables
+    expect(create.media).toEqual([
+      {
+        originalSource: 'https://shopify-staged-uploads.example/tmp/abc/photo.jpg',
+        mediaContentType: 'IMAGE',
+      },
+    ])
+  })
+
   it('reads the link where the customer pays what is still due', async () => {
     const { connector } = await connect()
     expect(await connector.paymentLink!('gid://shopify/Order/5551')).toBe(
@@ -436,7 +458,7 @@ describe('woocommerce specifics', () => {
   afterEach(() => vi.unstubAllGlobals())
   const sign = (raw: string) => createHmac('sha256', 'wc_secret').update(raw).digest('base64')
 
-  async function connect() {
+  async function connect(wordpress = false) {
     const t = await testShop()
     const woo = fakeWoo()
     vi.stubGlobal('fetch', woo.fetch)
@@ -446,13 +468,46 @@ describe('woocommerce specifics', () => {
       {
         kind: 'woocommerce',
         baseUrl: wooUrl,
-        credentials: { consumerKey: 'ck_test', consumerSecret: 'cs_test' },
+        credentials: {
+          consumerKey: 'ck_test',
+          consumerSecret: 'cs_test',
+          ...(wordpress ? { wpUser: 'shop', wpAppPassword: 'app pass word' } : {}),
+        },
         webhookSecret: 'wc_secret',
       },
       Date.now(),
     )
     return { woo, connector: res.connector!, row: res.row }
   }
+
+  it('posts to wordpress and uploads photos only with an application password', async () => {
+    const plain = await connect()
+    expect(plain.connector.publishPost).toBeUndefined()
+
+    const { woo, connector } = await connect(true)
+    const image = { bytes: Buffer.from('png'), mime: 'image/png', name: 'b.png' }
+    const post = await connector.publishPost!({
+      title: 'Eid collection',
+      body: 'New <kurti> in',
+      imageUrl: 'http://localhost/x',
+      image,
+    })
+    expect(post.url).toBe(`${wooUrl}/eid-collection/`)
+    const sent = woo.calls.find((c) => c.path === '/wp-json/wp/v2/posts')!.body
+    expect(sent).toMatchObject({ title: 'Eid collection', status: 'publish', featured_media: 55 })
+    expect(JSON.stringify(sent)).toContain('New &#60;kurti&#62; in')
+
+    // the fake answers product creation without a product, so only the request is checked
+    await connector.createProduct!({
+      name: 'Olive Panjabi',
+      imageUrl: 'http://localhost/y',
+      image,
+      status: 'draft',
+      variants: [{ externalId: '', pricePoisha: 180000, stock: 2 }],
+    }).catch(() => undefined)
+    const product = woo.calls.find((c) => c.method === 'POST' && c.path === '/products')!.body
+    expect(product).toMatchObject({ images: [{ id: 55 }] })
+  })
 
   it('reads variations as sizes and keeps out of stock at zero', async () => {
     const { connector, row } = await connect()

@@ -79,5 +79,7 @@ export const storeConnect = z.discriminatedUnion('kind', [
     baseUrl: z.url({ protocol: /^https$/ }),
     consumerKey: z.string().startsWith('ck_'),
     consumerSecret: z.string().startsWith('cs_'),
+    wpUser: z.string().min(1).optional(),
+    wpAppPassword: z.string().min(16).optional(),
   }),
 ])

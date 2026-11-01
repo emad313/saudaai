@@ -71,3 +71,6 @@ export async function derived(db: Db, id: string, role: Media['role']) {
 export function mediaUrl(id: string): string {
   return `${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/media/${id}`
 }
+
+export const fileName = (id: string, mime: string) =>
+  `${id}.${mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg'}`

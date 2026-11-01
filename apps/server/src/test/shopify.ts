@@ -15,6 +15,7 @@ export function fakeShopify(
   } = {},
 ) {
   const ops: { op: string; variables: Record<string, unknown> }[] = []
+  const uploads: { url: string; fields: string[] }[] = []
   let throttled = !opts.throttleFirst
 
   const ok = (data: unknown) => Response.json({ data })
@@ -23,6 +24,10 @@ export function fakeShopify(
   async function fetch(input: string | URL | Request, init?: RequestInit) {
     const url = String(input)
     const headers = init?.headers as Record<string, string>
+    if (url.startsWith('https://shopify-staged-uploads.example/')) {
+      uploads.push({ url, fields: [...(init?.body as FormData).keys()] })
+      return new Response(null, { status: 201 })
+    }
     if (!url.startsWith(`https://${shopifyDomain}/admin/api/`))
       return new Response('', { status: 404 })
     if (headers['x-shopify-access-token'] !== 'shpat_test_token') {
@@ -40,6 +45,10 @@ export function fakeShopify(
     }
     const has = (word: string) => query.includes(word)
     const op = [
+      'stagedUploadsCreate',
+      'productCreate',
+      'productVariantsBulkCreate',
+      'locations(first',
       'webhookSubscriptionCreate',
       'paymentCollectionDetails',
       'articleCreate',
@@ -86,6 +95,25 @@ export function fakeShopify(
               : [],
           },
         })
+      case 'stagedUploadsCreate':
+        return ok({
+          stagedUploadsCreate: {
+            stagedTargets: [
+              {
+                url: 'https://shopify-staged-uploads.example/upload',
+                resourceUrl: 'https://shopify-staged-uploads.example/tmp/abc/photo.jpg',
+                parameters: [{ name: 'key', value: 'tmp/abc/photo.jpg' }],
+              },
+            ],
+            ...none,
+          },
+        })
+      case 'productCreate':
+        return ok({ productCreate: { product: { id: 'gid://shopify/Product/8001' }, ...none } })
+      case 'productVariantsBulkCreate':
+        return ok({ productVariantsBulkCreate: none })
+      case 'locations(first':
+        return ok({ locations: { nodes: [{ id: 'gid://shopify/Location/1' }] } })
       case 'paymentCollectionDetails':
         return ok({
           order: {
@@ -172,5 +200,5 @@ export function fakeShopify(
     }
   }
 
-  return { ops, fetch }
+  return { ops, uploads, fetch }
 }

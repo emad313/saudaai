@@ -15,11 +15,20 @@ export function fakeWoo(opts: { currency?: string } = {}) {
   async function fetch(input: string | URL | Request, init?: RequestInit) {
     const url = new URL(String(input))
     const method = init?.method ?? 'GET'
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    const headers = init?.headers as Record<string, string>
+    const binary = init?.body instanceof Uint8Array
+    const body = init?.body && !binary ? JSON.parse(String(init.body)) : undefined
     const path = url.pathname.replace('/wp-json/wc/v3', '')
-    calls.push({ method, path, body })
+    calls.push({ method, path, body: binary ? '<image>' : body })
     if (url.pathname === '/wp-json/') return json({ name: 'Test Woo Shop' })
-    if ((init?.headers as Record<string, string>).authorization !== auth) {
+    if (url.pathname.startsWith('/wp-json/wp/v2/')) {
+      if (headers.authorization !== `Basic ${Buffer.from('shop:app pass word').toString('base64')}`)
+        return json({ code: 'rest_cannot_create' }, 401)
+      if (url.pathname.endsWith('/media'))
+        return json({ id: 55, source_url: `${wooUrl}/wp-content/uploads/banner.png` }, 201)
+      return json({ id: 9, link: `${wooUrl}/eid-collection/` }, 201)
+    }
+    if (headers.authorization !== auth) {
       return json(
         { code: 'woocommerce_rest_cannot_view', message: 'Sorry, you cannot list resources.' },
         401,
