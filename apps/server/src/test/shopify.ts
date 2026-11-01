@@ -6,7 +6,9 @@ const fixture = (name: string) =>
 export const shopifyDomain = 'nusrat-test.myshopify.com'
 
 // Answers Admin GraphQL from fixtures, keyed on the operation in the query text.
-export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string } = {}) {
+export function fakeShopify(
+  opts: { throttleFirst?: boolean; currency?: string; noCustomerData?: boolean } = {},
+) {
   const ops: { op: string; variables: Record<string, unknown> }[] = []
   let throttled = !opts.throttleFirst
 
@@ -88,6 +90,17 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
       case 'order(id: $id) { id name':
         return ok({ order: variables.id === fixture('order').id ? fixture('order') : null })
       case 'draftOrderCreate':
+        if (opts.noCustomerData) {
+          return Response.json({
+            errors: [
+              {
+                message:
+                  'This app is not approved to access the DraftOrder object. See https://shopify.dev/docs/apps/launch/protected-customer-data for more details.',
+                extensions: { code: 'ACCESS_DENIED' },
+              },
+            ],
+          })
+        }
         return ok({
           draftOrderCreate: { draftOrder: { id: 'gid://shopify/DraftOrder/777' }, ...none },
         })

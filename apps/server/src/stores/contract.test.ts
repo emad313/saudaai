@@ -305,6 +305,18 @@ describe('shopify specifics', () => {
     })
   })
 
+  it('explains how to fix missing protected customer data access', async () => {
+    const { connector } = await connect({ noCustomerData: true })
+    const made = connector.createOrder({
+      customer: { name: 'Mitu Akter', area: 'Mirpur' },
+      lines: [{ variantExternalId: 'gid://shopify/ProductVariant/9001', qty: 1 }],
+      shippingPoisha: 6000,
+      paymentMethod: 'cod',
+      tags: ['saudaai'],
+    })
+    await expect(made).rejects.toThrow('turn on protected customer data')
+  })
+
   it('turns signed webhooks into store events', async () => {
     const { connector } = await connect()
     const product = JSON.stringify(

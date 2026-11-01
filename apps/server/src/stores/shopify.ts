@@ -207,7 +207,14 @@ export function shopifyConnector(
         await sleep(1000 * 2 ** attempt)
         continue
       }
-      if (body.errors?.length) throw new StoreError(`shopify: ${body.errors[0]!.message}`)
+      const err = body.errors?.[0]
+      if (err && /not approved to access/i.test(err.message)) {
+        throw new StoreError(
+          'shopify has not given this app access to customer data, which orders need: in the Shopify app settings turn on protected customer data (name, email, phone, address), then install the app again',
+          403,
+        )
+      }
+      if (err) throw new StoreError(`shopify: ${err.message}`)
       return body.data as T
     }
   }
