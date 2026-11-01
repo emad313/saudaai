@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkCustomerReply, numbersIn } from './verify.ts'
+import { checkCustomerReply, factsIn, numbersIn } from './verify.ts'
 
 const facts = new Set(['1250', '120', '60', '01700000000'])
 const said = new Set(['01711000101', '27'])
@@ -9,6 +9,12 @@ describe('checkCustomerReply', () => {
     expect(
       checkCustomerReply('Ji, XL ache, dam ৳1,250. Delivery ১২০ টাকা।', facts, said),
     ).toBeNull()
+  })
+
+  it('reads cents in dollar prices', () => {
+    const usd = new Set(factsIn('Linen Shirt | $19.99 | M 4; delivery $5.00'))
+    expect(checkCustomerReply('Ji, Linen Shirt $19.99, delivery $5', usd, said)).toBeNull()
+    expect(checkCustomerReply('Ji, Linen Shirt $19.49', usd, said)).toContain('19.49')
   })
 
   it('lets the customer details be repeated back', () => {

@@ -13,7 +13,7 @@ import { logMessage, sendToCustomer } from './messaging.ts'
 import { propose } from './pending.ts'
 import { customerPrompt, sellerPrompt, shopFacts } from './prompt.ts'
 import { toolByName, toolsFor, type ToolDef, type TurnCtx } from './registry.ts'
-import { checkCustomerReply, numbersIn, verifyOrders } from './verify.ts'
+import { checkCustomerReply, factsIn, numbersIn, verifyOrders } from './verify.ts'
 
 const maxSteps = 6
 
@@ -143,7 +143,7 @@ async function plan(deps: Deps, turn: Turn, messages: ChatMessage[]) {
     for (const call of res.toolCalls) {
       const out = await execute(turn, call, step)
       const content = JSON.stringify(out)
-      for (const n of numbersIn(content)) turn.facts.add(n)
+      for (const n of factsIn(content)) turn.facts.add(n)
       messages.push({ role: 'tool', tool_call_id: call.id, content: content.slice(0, 6000) })
     }
     if (turn.ended) return null
@@ -205,7 +205,7 @@ export async function runTurn(
     ended: false,
   }
   const context = await contextBlock(ctx)
-  for (const n of numbersIn(`${context}\n${shopFacts(shop)}`)) turn.facts.add(n)
+  for (const n of factsIn(`${context}\n${shopFacts(shop)}`)) turn.facts.add(n)
   const past = await history(ctx, conversation.id)
   const said = new Set(
     past.filter((m) => m.role === 'user').flatMap((m) => numbersIn(String(m.content))),

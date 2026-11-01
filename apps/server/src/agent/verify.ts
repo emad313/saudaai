@@ -26,12 +26,16 @@ export async function verifyOrders(db: Db, orderIds: string[]): Promise<string[]
 
 const banglaDigits = '০১২৩৪৫৬৭৮৯'
 
-export function numbersIn(text: string): string[] {
-  const latin = text.replace(/[০-৯]/g, (d) => String(banglaDigits.indexOf(d)))
-  return (latin.match(/\d[\d,]*(?:\.\d+)?/g) ?? [])
-    .map((n) => n.replace(/,/g, '').replace(/\.0+$/, ''))
-    .filter((n) => Number(n) >= 10)
+// Small numbers are quantities and sizes in a reply, but in shop data they can be prices ($5 delivery).
+export function factsIn(text: string): string[] {
+  return (latin(text).match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map(plain)
 }
+
+export function numbersIn(text: string): string[] {
+  return factsIn(text).filter((n) => Number(n) >= 10)
+}
+
+const plain = (n: string) => n.replace(/,/g, '').replace(/\.0+$/, '')
 
 const offerWords =
   /(discount|ডিসকাউন্ট|ছাড়|ছাড়|chhar|char\b|off\b|অফ|free|ফ্রি|refund|রিফান্ড|ফেরত)/i
@@ -43,12 +47,14 @@ function latin(text: string) {
 function priceNumbers(text: string): string[] {
   const t = latin(text)
   const before = [
-    ...t.matchAll(/(?:৳|\$|€|£|₹|tk\.?|taka|টাকা|rs\.?|usd|eur|inr)\s*(\d[\d,]*)/gi),
+    ...t.matchAll(/(?:৳|\$|€|£|₹|tk\.?|taka|টাকা|rs\.?|usd|eur|inr)\s*(\d[\d,]*(?:\.\d+)?)/gi),
   ].map((m) => m[1]!)
   const after = [
-    ...t.matchAll(/(\d[\d,]*)\s*(?:৳|tk\b|taka|টাকা|\/-|usd\b|dollars?\b|rs\b|rupees?\b)/gi),
+    ...t.matchAll(
+      /(\d[\d,]*(?:\.\d+)?)\s*(?:৳|tk\b|taka|টাকা|\/-|usd\b|dollars?\b|rs\b|rupees?\b)/gi,
+    ),
   ].map((m) => m[1]!)
-  return [...before, ...after].map((n) => n.replace(/,/g, ''))
+  return [...before, ...after].map(plain)
 }
 
 export function mentionsOffer(text: string) {
