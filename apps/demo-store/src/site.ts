@@ -91,7 +91,7 @@ export function shopPage(products: Product[], widget: Widget, banner: Banner = n
   const hero = banner
     ? `<section class="hero" id="post-${esc(banner.id)}"><img src="${esc(banner.imageUrl)}" alt="${esc(banner.title)}"><p>${esc(banner.body)}</p></section>`
     : ''
-  return page("SaudaAI Demo Shop", `${hero}<div class="grid">${cards}</div>`, widget)
+  return page('SaudaAI Demo Shop', `${hero}<div class="grid">${cards}</div>`, widget)
 }
 
 export function productPage(p: Product, widget: Widget) {
@@ -170,7 +170,7 @@ export function adminPage(products: Product[], orders: Record<string, unknown>[]
 
 export function messagePage(text: string) {
   return page(
-    "SaudaAI Demo Shop",
+    'SaudaAI Demo Shop',
     `<div class="detail" style="display:block"><p style="font-size:17px;margin:0">${esc(text)}</p><p><a class="note" href="/">Back to the shop</a></p></div>`,
     null,
   )
