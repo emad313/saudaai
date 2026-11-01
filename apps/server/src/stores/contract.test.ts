@@ -281,7 +281,7 @@ describe('shopify specifics', () => {
   it('creates the order as a draft completed with payment pending', async () => {
     const { shopify, connector } = await connect()
     const made = await connector.createOrder({
-      customer: { name: 'Mitu Akter', area: 'Mirpur' },
+      customer: { name: 'Mitu Akter', phone: '01712345678', area: 'Mirpur' },
       lines: [{ variantExternalId: 'gid://shopify/ProductVariant/9001', qty: 2 }],
       shippingPoisha: 6000,
       paymentMethod: 'bkash',
@@ -300,6 +300,8 @@ describe('shopify specifics', () => {
       lineItems: [{ variantId: 'gid://shopify/ProductVariant/9001', quantity: 2 }],
       shippingLine: { priceWithCurrency: { amount: '60.00', currencyCode: 'BDT' } },
       tags: ['saudaai', 'whatsapp'],
+      phone: '+8801712345678',
+      shippingAddress: expect.objectContaining({ phone: '+8801712345678' }),
     })
   })
 

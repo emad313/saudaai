@@ -1,4 +1,5 @@
 import { parseTaka } from '@saudaai/shared'
+import { normalizePhone } from '../tools/text.ts'
 import type { Credentials, StoreRow } from './index.ts'
 import { decimal, failure, hmacMatches, queued, storeRequest } from './http.ts'
 import {
@@ -303,6 +304,9 @@ export function shopifyConnector(
     // Draft then complete with payment pending: the order lands unpaid, like cash on delivery.
     async createOrder(input) {
       const [first, ...rest] = input.customer.name.trim().split(/\s+/)
+      // Shopify only takes E.164; customers are stored as local 01XXXXXXXXX.
+      const local = input.customer.phone ? normalizePhone(input.customer.phone) : null
+      const phone = local ? `+88${local}` : undefined
       const draft = await gql<{
         draftOrderCreate: { draftOrder: { id: string } | null; userErrors: { message: string }[] }
       }>(
@@ -326,9 +330,9 @@ export function shopifyConnector(
               address1: input.customer.address ?? input.customer.area,
               city: input.customer.area,
               countryCode: 'BD',
-              phone: input.customer.phone,
+              phone,
             },
-            phone: input.customer.phone,
+            phone,
             email: input.customer.email,
             note: [input.note, `Payment: ${input.paymentMethod}`].filter(Boolean).join('\n'),
             tags: input.tags,
