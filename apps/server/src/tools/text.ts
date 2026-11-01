@@ -16,7 +16,7 @@ export function normalizePhone(raw: string): string | null {
     .replace(/[^\d০-৯]/g, '')
     .replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))
   const local = digits.startsWith('880') ? digits.slice(2) : digits
-  return /^01\d{9}$/.test(local) ? local : null
+  return /^01[3-9]\d{8}$/.test(local) ? local : null
 }
 
 const dhakaOffsetMs = 6 * 60 * 60 * 1000
