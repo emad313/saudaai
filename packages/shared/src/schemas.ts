@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { currencies } from './money.ts'
+import { currencies, hasCents } from './money.ts'
 
-const taka = z.number().int().min(0).max(10_000_000)
+const taka = z.number().min(0).max(10_000_000).refine(hasCents, 'at most two decimals')
 
 export const authCode = z.object({ code: z.string().regex(/^\d{6}$/) })
 
@@ -9,11 +9,11 @@ export const orderPatch = z.object({
   status: z.enum(['confirmed', 'shipped', 'delivered', 'cancelled']),
 })
 
-export const paymentInput = z.object({ amountTaka: taka.min(1), method: z.string().min(1) })
+export const paymentInput = z.object({ amountTaka: taka.min(0.01), method: z.string().min(1) })
 
 export const productPatch = z.object({
   name: z.string().min(2).optional(),
-  priceTaka: taka.min(1).optional(),
+  priceTaka: taka.min(0.01).optional(),
   status: z.enum(['draft', 'active', 'archived']).optional(),
 })
 

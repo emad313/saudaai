@@ -6,6 +6,7 @@ import {
   sellerMessage,
   shopPatch,
   storeConnect,
+  toMinor,
   variantAdjust,
 } from '@saudaai/shared'
 import { and, desc, eq, gte, inArray, like, ne, or, sql } from 'drizzle-orm'
@@ -279,7 +280,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
     const auto = { ...shop.auto }
     if (p.autoConfirmUpToTaka !== undefined) {
       if (p.autoConfirmUpToTaka === null) delete auto.confirm_order
-      else auto.confirm_order = { maxPoisha: p.autoConfirmUpToTaka * 100 }
+      else auto.confirm_order = { maxPoisha: toMinor(p.autoConfirmUpToTaka) }
     }
     if (p.autoSendConfirmation !== undefined) auto.send_order_confirmation = p.autoSendConfirmation
     if (p.autoSendReminders !== undefined) auto.send_payment_reminder = p.autoSendReminders
@@ -294,9 +295,11 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
         deliveryRules: {
           ...rules,
           insideDhakaPoisha:
-            p.insideDhakaTaka !== undefined ? p.insideDhakaTaka * 100 : rules.insideDhakaPoisha,
+            p.insideDhakaTaka !== undefined ? toMinor(p.insideDhakaTaka) : rules.insideDhakaPoisha,
           outsideDhakaPoisha:
-            p.outsideDhakaTaka !== undefined ? p.outsideDhakaTaka * 100 : rules.outsideDhakaPoisha,
+            p.outsideDhakaTaka !== undefined
+              ? toMinor(p.outsideDhakaTaka)
+              : rules.outsideDhakaPoisha,
         },
         auto,
         feedMuted: p.feedMuted ?? shop.feedMuted,
@@ -371,7 +374,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
     return c.json(
       await recordPayment(ctx(c.get('shop')), {
         orderId: c.req.param('id'),
-        amountPoisha: p.amountTaka * 100,
+        amountPoisha: toMinor(p.amountTaka),
         method: p.method,
       }),
     )
@@ -438,7 +441,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
         productId: c.req.param('id'),
         name: p.name,
         status: p.status,
-        pricePoisha: p.priceTaka !== undefined ? p.priceTaka * 100 : undefined,
+        pricePoisha: p.priceTaka !== undefined ? toMinor(p.priceTaka) : undefined,
       }),
     )
   })

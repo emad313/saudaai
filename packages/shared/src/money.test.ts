@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, parseTaka, sumPoisha } from './money.ts'
+import { formatMoney, hasCents, parseTaka, sumPoisha, toMinor } from './money.ts'
 
 describe('parseTaka', () => {
   it.each([
@@ -42,5 +42,18 @@ describe('sumPoisha', () => {
   it('adds integers and refuses floats', () => {
     expect(sumPoisha([125000, 6000])).toBe(131000)
     expect(() => sumPoisha([1, 0.1])).toThrow()
+  })
+})
+
+describe('toMinor', () => {
+  it('turns typed amounts with cents into exact minor units', () => {
+    expect(toMinor(104.99)).toBe(10499)
+    expect(toMinor(0.1 + 0.2)).toBe(30)
+    expect(toMinor(1250)).toBe(125000)
+  })
+
+  it('accepts at most two decimals', () => {
+    expect(hasCents(104.99)).toBe(true)
+    expect(hasCents(19.999)).toBe(false)
   })
 })

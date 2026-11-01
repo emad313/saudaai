@@ -47,6 +47,14 @@ export function formatMoney(minor: number, currency: string = 'BDT'): string {
   }).format(minor / 100)
 }
 
+/** Amount typed in whole currency units (1250, 104.99) to integer minor units. */
+export function toMinor(amount: number): number {
+  return Math.round(amount * 100)
+}
+
+/** Whole currency units with at most two decimals, as typed by people and models. */
+export const hasCents = (n: number) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6
+
 export function sumPoisha(values: readonly number[]): number {
   return values.reduce((total, value) => {
     if (!Number.isInteger(value)) throw new Error(`poisha must be an integer, got ${value}`)

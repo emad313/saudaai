@@ -1,4 +1,4 @@
-import { formatMoney } from '@saudaai/shared'
+import { formatMoney, hasCents, toMinor } from '@saudaai/shared'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { newId } from '../db/ids.ts'
@@ -73,7 +73,7 @@ function tool<S extends z.ZodObject>(def: {
 }
 
 const id = z.string().min(1)
-const taka = z.number().int().positive().max(10_000_000)
+const taka = z.number().positive().max(10_000_000).refine(hasCents, 'at most two decimals')
 const qty = z.number().int().min(1).max(100)
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -211,7 +211,7 @@ export const tools: ToolDef[] = [
   tool({
     name: 'create_product_draft',
     description:
-      'Create a new product as a draft. Price in whole units of the shop currency (taka for BDT, dollars for USD). Each variant is one size and/or color with its stock count.',
+      'Create a new product as a draft. Price in the shop currency (taka for BDT, dollars with cents for USD). Each variant is one size and/or color with its stock count.',
     schema: z.object({
       name: z.string().min(2),
       category: z.string().min(2),
@@ -234,14 +234,14 @@ export const tools: ToolDef[] = [
       createProductDraft(ctx, {
         name: a.name,
         category: a.category,
-        pricePoisha: a.priceTaka * 100,
+        pricePoisha: toMinor(a.priceTaka),
         aliases: a.aliases,
         mediaId: a.mediaId,
         variants: a.variants.map((v) => ({
           size: v.size,
           color: v.color,
           stock: v.stock,
-          pricePoisha: v.priceTaka ? v.priceTaka * 100 : undefined,
+          pricePoisha: v.priceTaka ? toMinor(v.priceTaka) : undefined,
         })),
       }),
     done: (r: { name: string; price: string }) => `Draft product: ${r.name} ${r.price}`,
@@ -356,18 +356,19 @@ export const tools: ToolDef[] = [
   }),
   tool({
     name: 'record_payment',
-    description: 'Record money received for an order, in whole taka.',
+    description:
+      'Record money received for an order, in the shop currency exactly as due (cents allowed, e.g. 104.99).',
     schema: z.object({ orderId: id, amountTaka: taka, method: z.string().min(1) }),
     expose: 'seller',
     guard: () => true,
     preview: async (ctx, a) => {
       const o = await getOrder(ctx, { orderId: a.orderId })
-      return `Record ${formatMoney(a.amountTaka * 100, ctx.shop.currency)} via ${methodLabel(a.method)} for order #${o.number} (${o.customer.name}, due ${o.due})?`
+      return `Record ${formatMoney(toMinor(a.amountTaka), ctx.shop.currency)} via ${methodLabel(a.method)} for order #${o.number} (${o.customer.name}, due ${o.due})?`
     },
     run: (ctx, a) =>
       recordPayment(ctx, {
         orderId: a.orderId,
-        amountPoisha: a.amountTaka * 100,
+        amountPoisha: toMinor(a.amountTaka),
         method: a.method,
       }),
     done: (r: OrderView) => `Payment saved for #${r.number}, due now ${r.due}`,
@@ -375,7 +376,7 @@ export const tools: ToolDef[] = [
   tool({
     name: 'record_expense',
     description:
-      'Record a shop expense in whole taka (transport, packaging, ads, stock purchase...).',
+      'Record a shop expense in the shop currency (transport, packaging, ads, stock purchase...).',
     schema: z.object({
       amountTaka: taka,
       category: z.string().min(1),
@@ -383,7 +384,11 @@ export const tools: ToolDef[] = [
     }),
     expose: 'seller',
     run: (ctx, a) =>
-      recordExpense(ctx, { amountPoisha: a.amountTaka * 100, category: a.category, note: a.note }),
+      recordExpense(ctx, {
+        amountPoisha: toMinor(a.amountTaka),
+        category: a.category,
+        note: a.note,
+      }),
     done: (r: { amount: string; category: string }) => `Expense ${r.amount} (${r.category})`,
   }),
   tool({

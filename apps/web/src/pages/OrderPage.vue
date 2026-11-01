@@ -181,9 +181,10 @@ onMounted(load)
             <input
               v-model.number="amount"
               type="number"
-              min="1"
+              min="0.01"
+              step="0.01"
               class="field"
-              aria-label="Amount in taka"
+              aria-label="Amount"
             />
             <select v-model="method" class="field w-32" aria-label="Method">
               <option value="bkash">bKash</option>
