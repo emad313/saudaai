@@ -41,6 +41,8 @@ function stripReasoning(text: string | null): string {
   return (text ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
 }
 
+export class TokenCapError extends ModelError {}
+
 export async function complete(
   ep: Endpoint,
   body: {
@@ -73,7 +75,7 @@ export async function complete(
   const msg = res.choices[0]?.message
   if (!msg) throw new ModelError(`${ep.provider}: empty completion`)
   if (res.choices[0]!.finish_reason === 'length' && !msg.content && !msg.tool_calls?.length)
-    throw new ModelError(`${ep.provider}: hit the token cap before answering`)
+    throw new TokenCapError(`${ep.provider}: hit the token cap before answering`)
   return {
     text: stripReasoning(msg.content),
     toolCalls: msg.tool_calls ?? [],

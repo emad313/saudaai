@@ -7,7 +7,14 @@ import sharp from 'sharp'
 import { z } from 'zod'
 import type { Db } from '../db/client.ts'
 import type { Env } from '../env.ts'
-import { complete, parseJsonReply, type ChatMessage, type Endpoint, type ToolSpec } from './chat.ts'
+import {
+  complete,
+  parseJsonReply,
+  TokenCapError,
+  type ChatMessage,
+  type Endpoint,
+  type ToolSpec,
+} from './chat.ts'
 import { ModelError, postJson, request } from './http.ts'
 import { bestMask } from './sam.ts'
 import { dailyLimit, hashOf, tracked, type Call } from './track.ts'
@@ -99,7 +106,11 @@ export function createModels(db: Db, env: Env): Models {
         provider: ep.provider,
         model: ep.model,
         run: async () => {
-          const out = await complete(ep, { messages, tools }, 30_000)
+          // Long chats can spend the whole cap on reasoning; one shorter-thinking retry answers.
+          const out = await complete(ep, { messages, tools }, 30_000).catch((err: unknown) => {
+            if (!(err instanceof TokenCapError)) throw err
+            return complete(ep, { messages, tools, reasoning: 'low', maxTokens: 8192 }, 45_000)
+          })
           return { value: out, inputUnits: out.inputUnits, outputUnits: out.outputUnits }
         },
       })

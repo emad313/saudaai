@@ -60,6 +60,24 @@ describe('createModels', () => {
   })
 })
 
+describe('plan', () => {
+  it('retries once with low reasoning when thinking used the whole cap', async () => {
+    let first = true
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      sent.push({ url, body: JSON.parse(String(init.body)) })
+      if (first) {
+        first = false
+        return Response.json({ choices: [{ message: { content: '' }, finish_reason: 'length' }] })
+      }
+      return Response.json({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] })
+    })
+    const { db } = await testShop()
+    const out = await createModels(db, meta).plan([{ role: 'user', content: 'hi' }], [])
+    expect(out.text).toBe('ok')
+    expect(sent[1]!.body).toMatchObject({ reasoning_effort: 'low', max_completion_tokens: 8192 })
+  })
+})
+
 describe('image', () => {
   it('sends reference images to the edits endpoint, plain prompts to generations', async () => {
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
