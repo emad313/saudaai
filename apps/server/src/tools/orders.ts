@@ -389,6 +389,17 @@ export async function recordPayment(
   return getOrder(ctx, { orderId: o.id })
 }
 
+export async function paymentLink(
+  ctx: Ctx,
+  ref: { orderId?: string; number?: number },
+): Promise<string | null> {
+  const o = await requireOrder(ctx, ref)
+  if (!o.externalId) return null
+  const store = await storeFor(ctx.db, ctx.shop.id)
+  if (!store.connector?.paymentLink || store.row?.id !== o.storeId) return null
+  return storeCall(() => store.connector!.paymentLink!(o.externalId!))
+}
+
 export async function listOrders(
   ctx: Ctx,
   args: { status?: OrderStatus[]; customerId?: string; limit?: number; offset?: number },

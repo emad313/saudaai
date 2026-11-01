@@ -25,9 +25,15 @@ export function confirmationText(shopName: string, o: OrderView) {
   ].join('\n')
 }
 
-export function reminderText(shopName: string, bkash: string | null, o: OrderView) {
+export function reminderText(
+  shopName: string,
+  bkash: string | null,
+  o: OrderView,
+  link: string | null = null,
+) {
   return [
     `প্রিয় ${o.customer.name}, অর্ডার #${o.number} এর ${o.due} পেমেন্ট বাকি আছে।`,
+    link ? `অনলাইনে পেমেন্ট: ${link}` : null,
     bkash ? `বিকাশ/নগদ: ${bkash}` : null,
     `পেমেন্ট করে জানালে খুশি হব। ধন্যবাদ, ${shopName}`,
   ]

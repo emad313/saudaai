@@ -298,6 +298,14 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
       return fromWooOrder((await res.json()) as WooOrder, site)
     },
 
+    async paymentLink(externalId) {
+      const { data } = await call<{ needs_payment?: boolean; payment_url?: string }>(
+        'GET',
+        `/orders/${encodeURIComponent(externalId)}`,
+      )
+      return data.needs_payment && data.payment_url ? data.payment_url : null
+    },
+
     async listOrders(since, cursor) {
       const page = Number(cursor ?? 1)
       const after = encodeURIComponent(new Date(since).toISOString())

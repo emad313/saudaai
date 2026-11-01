@@ -387,6 +387,18 @@ export function shopifyConnector(
       }
     },
 
+    async paymentLink(externalId) {
+      const data = await gql<{
+        order: {
+          paymentCollectionDetails: { additionalPaymentCollectionUrl: string | null }
+        } | null
+      }>(
+        `query($id: ID!) { order(id: $id) { paymentCollectionDetails { additionalPaymentCollectionUrl } } }`,
+        { id: externalId },
+      )
+      return data.order?.paymentCollectionDetails.additionalPaymentCollectionUrl ?? null
+    },
+
     async updateOrder(externalId, change) {
       if (change.status === 'cancelled') {
         const res = await gql<{ orderCancel: { orderCancelUserErrors: { message: string }[] } }>(

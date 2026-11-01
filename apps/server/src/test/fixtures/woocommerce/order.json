@@ -33,5 +33,7 @@
     "email": "",
     "address_1": "Road 3, Mirpur",
     "city": "Mirpur"
-  }
+  },
+  "needs_payment": true,
+  "payment_url": "https://store.example/checkout/order-pay/727/?pay_for_order=true&key=wc_order_abc"
 }

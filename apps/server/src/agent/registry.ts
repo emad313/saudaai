@@ -19,6 +19,7 @@ import {
   createOrder,
   getOrder,
   listOrders,
+  paymentLink,
   recordPayment,
   updateOrderStatus,
 } from '../tools/orders.ts'
@@ -132,7 +133,8 @@ async function remind(ctx: TurnCtx, orderId: string) {
     throw new ToolError('nothing_due', `order #${order.number} is fully paid`)
   const conv = await customerConversation(ctx.deps, ctx.shop.id, row.customerId, row.conversationId)
   if (!conv) throw new ToolError('no_channel', `${order.customer.name} has no chat with the shop`)
-  const text = reminderText(ctx.shop.name, ctx.shop.bkashNumber, order)
+  const link = await paymentLink(asSeller(ctx), { orderId }).catch(() => null)
+  const text = reminderText(ctx.shop.name, ctx.shop.bkashNumber, order, link)
   if (canSendFreeform(conv, ctx.now)) {
     await sendToCustomer(ctx.deps, conv, { kind: 'text', text })
     return { orderId, number: order.number, due: order.due, sent: true, via: 'message' }
@@ -408,7 +410,8 @@ export const tools: ToolDef[] = [
   }),
   tool({
     name: 'send_payment_reminder',
-    description: 'Send a polite payment reminder for an unpaid order. Needs seller approval.',
+    description:
+      "Send the customer a polite payment reminder for an unpaid order, with the store's online payment link when it has one. Use it when the seller asks to send a payment link. Needs seller approval.",
     schema: z.object({ orderId: id }),
     expose: 'seller',
     guard: (ctx) => !ctx.shop.auto.send_payment_reminder,
@@ -597,6 +600,25 @@ export const tools: ToolDef[] = [
           total,
         })),
       }
+    },
+  }),
+  tool({
+    name: 'payment_link',
+    description:
+      "The online payment link for one of the customer's own unpaid orders, to put in the reply.",
+    schema: z.object({ number: z.number().int().positive() }),
+    expose: 'customer',
+    run: async (ctx, a) => {
+      const o = await getOrder(ctx, { number: a.number })
+      if (o.duePoisha <= 0) throw new ToolError('nothing_due', `order #${o.number} is fully paid`)
+      const url = await paymentLink(ctx, { number: a.number })
+      if (!url) {
+        throw new ToolError(
+          'no_link',
+          'the store has no online payment link for this order; give the payment methods instead',
+        )
+      }
+      return { number: o.number, due: o.due, url }
     },
   }),
   tool({

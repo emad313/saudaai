@@ -41,6 +41,7 @@ export function fakeShopify(
     const has = (word: string) => query.includes(word)
     const op = [
       'webhookSubscriptionCreate',
+      'paymentCollectionDetails',
       'articleCreate',
       'blogs(first',
       'orders(first',
@@ -83,6 +84,14 @@ export function fakeShopify(
             userErrors: String(variables.topic).startsWith('ORDERS')
               ? [{ message: 'You cannot create a webhook subscription with the specified topic' }]
               : [],
+          },
+        })
+      case 'paymentCollectionDetails':
+        return ok({
+          order: {
+            paymentCollectionDetails: {
+              additionalPaymentCollectionUrl: `https://${shopifyDomain}/pay/5551`,
+            },
           },
         })
       case 'blogs(first':

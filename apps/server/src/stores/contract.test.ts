@@ -320,6 +320,13 @@ describe('shopify specifics', () => {
     })
   })
 
+  it('reads the link where the customer pays what is still due', async () => {
+    const { connector } = await connect()
+    expect(await connector.paymentLink!('gid://shopify/Order/5551')).toBe(
+      `https://${shopifyDomain}/pay/5551`,
+    )
+  })
+
   it('explains how to fix missing protected customer data access', async () => {
     const { connector } = await connect({ noCustomerData: true })
     const made = connector.createOrder({
@@ -496,6 +503,7 @@ describe('woocommerce specifics', () => {
       path: '/orders/727',
       body: { set_paid: true, status: 'processing' },
     })
+    expect(await connector.paymentLink!('727')).toContain('/order-pay/727/')
   })
 
   it('creates its webhooks with our secret', async () => {

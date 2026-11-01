@@ -83,6 +83,8 @@ export interface StoreConnector {
   publishProduct?(externalId: string): Promise<void>
   // Returns the topics the store refused, with its reason; the others are subscribed.
   registerWebhooks?(url: string): Promise<{ topic: string; reason: string }[]>
+  // Where the customer can pay what is still due online; null when the store has no such link.
+  paymentLink?(externalId: string): Promise<string | null>
   publishPost?(post: { title: string; body: string; imageUrl: string }): Promise<{ url: string }>
   parseWebhook(req: { headers: Record<string, string>; raw: string }): Promise<StoreEvent[]>
 }
