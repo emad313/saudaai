@@ -49,7 +49,6 @@ import { pullStore } from '../stores/sync.ts'
 import { StoreError } from '../stores/types.ts'
 import { analytics } from '../tools/analytics.ts'
 import { listPosts } from '../tools/posts.ts'
-import { availableDocs, readDoc } from './docs.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
@@ -227,14 +226,6 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       throw new HTTPException(400, { message: 'dates are YYYY-MM-DD' })
     }
     return c.json(await analytics(ctx(c.get('shop')), { from, to }))
-  })
-
-  app.get('/docs', (c) => c.json({ groups: availableDocs() }))
-
-  app.get('/docs/:slug', async (c) => {
-    const doc = await readDoc(c.req.param('slug'))
-    if (!doc) throw new HTTPException(404, { message: 'no such doc' })
-    return c.json(doc)
   })
 
   app.get('/posts', async (c) => {

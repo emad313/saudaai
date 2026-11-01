@@ -277,7 +277,7 @@ const switches = [
             SaudaAI runs on {{ session.me.publicUrl }}, which other sites cannot reach. Deploy it on
             a public https address before adding the chat to a live store.
           </p>
-          <RouterLink to="/docs/guide" class="mt-2 inline-block text-sm font-medium text-ink"
+          <RouterLink to="/docs/setup" class="mt-2 inline-block text-sm font-medium text-ink"
             >Step-by-step guide</RouterLink
           >
         </div>
@@ -292,7 +292,7 @@ const switches = [
         </div>
         <p class="px-5 py-3 text-xs text-muted">
           Channels are connected with keys in the server's .env;
-          <RouterLink to="/docs/guide" class="text-ink">see the guide</RouterLink>.
+          <RouterLink to="/docs/setup" class="text-ink">see the guide</RouterLink>.
         </p>
       </section>
     </aside>

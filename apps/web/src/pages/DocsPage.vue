@@ -1,50 +1,43 @@
 <script setup lang="ts">
 import { marked } from 'marked'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { api } from '../api.ts'
+import setup from '../help/setup.md?raw'
+import using from '../help/using.md?raw'
 
-type Group = { label: string; docs: { slug: string; title: string }[] }
+const guides = [
+  { slug: 'using', title: 'Using SaudaAI every day', markdown: using },
+  { slug: 'setup', title: 'Setting up your shop', markdown: setup },
+]
 
 const route = useRoute()
-const groups = ref<Group[]>([])
-const doc = ref<{ title: string; markdown: string } | null>(null)
 const slug = computed(() => String(route.params.slug ?? ''))
-
-onMounted(async () => {
-  groups.value = (await api<{ groups: Group[] }>('/api/docs')).groups
-})
-
-watch(
-  slug,
-  async (s) => {
-    doc.value = s ? await api<{ title: string; markdown: string }>(`/api/docs/${s}`) : null
-  },
-  { immediate: true },
-)
-
-// The docs are the repository's own markdown files, not user input.
-const html = computed(() => (doc.value ? (marked.parse(doc.value.markdown) as string) : ''))
+const guide = computed(() => guides.find((g) => g.slug === slug.value) ?? null)
+// The guides ship inside the app; they are not user input.
+const html = computed(() => (guide.value ? (marked.parse(guide.value.markdown) as string) : ''))
 </script>
 
 <template>
   <h1 class="page-title">Docs</h1>
   <div class="mt-6 grid gap-6 lg:grid-cols-[15rem_1fr]">
-    <nav class="flex flex-col gap-5" aria-label="Documents">
-      <div v-for="g in groups" :key="g.label">
-        <h2 class="px-3 text-xs font-medium text-muted">{{ g.label }}</h2>
-        <RouterLink
-          v-for="d in g.docs"
-          :key="d.slug"
-          :to="`/docs/${d.slug}`"
-          class="mt-0.5 block rounded-lg px-3 py-1.5 text-sm hover:bg-sky"
-          :class="slug === d.slug ? 'bg-sky font-medium text-ink' : 'text-night'"
-          >{{ d.title }}</RouterLink
-        >
-      </div>
+    <nav class="flex flex-col gap-0.5" aria-label="Guides">
+      <RouterLink
+        to="/docs"
+        class="rounded-lg px-3 py-1.5 text-sm hover:bg-sky"
+        :class="!guide ? 'bg-sky font-medium text-ink' : 'text-night'"
+        >About SaudaAI</RouterLink
+      >
+      <RouterLink
+        v-for="g in guides"
+        :key="g.slug"
+        :to="`/docs/${g.slug}`"
+        class="rounded-lg px-3 py-1.5 text-sm hover:bg-sky"
+        :class="slug === g.slug ? 'bg-sky font-medium text-ink' : 'text-night'"
+        >{{ g.title }}</RouterLink
+      >
     </nav>
 
-    <article v-if="doc" class="panel doc min-w-0 px-6 py-5 md:px-8" v-html="html"></article>
+    <article v-if="guide" class="panel doc min-w-0 px-6 py-5 md:px-8" v-html="html"></article>
 
     <section v-else class="panel max-w-3xl px-6 py-6 md:px-8">
       <h2 class="text-xl font-semibold">Why SaudaAI exists</h2>
@@ -68,15 +61,18 @@ const html = computed(() => (doc.value ? (marked.parse(doc.value.markdown) as st
         code, never written by the model, and every step the assistant takes is in the Agent log.
       </p>
       <p class="mt-4 text-sm text-muted">
-        New here? Start with
-        <RouterLink to="/docs/guide" class="font-medium text-ink hover:underline"
+        Start with
+        <RouterLink to="/docs/using" class="font-medium text-ink hover:underline"
+          >Using SaudaAI every day</RouterLink
+        >, or
+        <RouterLink to="/docs/setup" class="font-medium text-ink hover:underline"
           >Setting up your shop</RouterLink
-        >.
+        >
+        to connect a store and chat channels.
       </p>
     </section>
   </div>
 </template>
-
 <style scoped>
 .doc :deep(h1) {
   font-size: 1.5rem;
