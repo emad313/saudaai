@@ -17,7 +17,7 @@ const saudaai =
       }
     : undefined
 
-const port = Number(env.DEMO_STORE_PORT ?? 8790)
+const port = Number(env.DEMO_STORE_PORT ?? env.PORT ?? 8790)
 serve({ fetch: createStoreApp(db, { token, saudaai }).fetch, port })
 console.log(
   `demo store on http://localhost:${port}${saudaai ? '' : ' (not linked to saudaai yet)'}`,

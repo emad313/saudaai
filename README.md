@@ -255,7 +255,7 @@ On Railway:
 2. Add a volume mounted at `/data`.
 3. Variables: everything from your `.env`, with `PUBLIC_BASE_URL` set to the Railway domain (Settings > Networking > Generate domain) and `TELEGRAM_MODE=webhook`. Keep `STORE_SECRET_KEY` the same once stores are connected.
 4. After the first deploy run `pnpm webhooks:set` locally with that `PUBLIC_BASE_URL`, and enter the printed callback URL in the Meta app.
-5. For the demo store add a second service from the same repo with start command `npx tsx src/index.ts`, root `/app/apps/demo-store`, its own volume at `/data` and `DEMO_STORE_DATABASE_URL=file:/data/demo-store.db`.
+5. For the demo store add a second service from the same repo with the start command `sh -c "cd /app/apps/demo-store && npx tsx src/index.ts"`, its own volume at `/data`, `DEMO_STORE_DATABASE_URL=file:/data/demo-store.db` and the `DEMO_STORE_*` variables (with `DEMO_STORE_SAUDAAI_URL` set to the SaudaAI domain). Leave `DEMO_STORE_PORT` unset there so it uses Railway's port.
 
 With Docker anywhere else:
 
