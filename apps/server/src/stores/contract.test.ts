@@ -456,7 +456,7 @@ describe('woocommerce specifics', () => {
 
   it('reads variations as sizes and keeps out of stock at zero', async () => {
     const { connector, row } = await connect()
-    expect(row.name).toBe("Test Woo Shop")
+    expect(row.name).toBe('Test Woo Shop')
     const kurti = await connector.getProduct('101')
     expect(kurti).toMatchObject({
       status: 'active',

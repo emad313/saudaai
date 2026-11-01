@@ -380,3 +380,17 @@ export const loginCodes = sqliteTable('login_codes', {
     .references(() => shops.id),
   expiresAt: integer('expires_at').notNull(),
 })
+
+export const posts = sqliteTable(
+  'posts',
+  {
+    id: id(),
+    shopId: text('shop_id').notNull(),
+    target: text('target', { enum: ['facebook', 'instagram', 'website'] }).notNull(),
+    mediaIds: text('media_ids', { mode: 'json' }).$type<string[]>().notNull(),
+    text: text('text').notNull(),
+    url: text('url'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('posts_shop_idx').on(t.shopId, t.createdAt)],
+)

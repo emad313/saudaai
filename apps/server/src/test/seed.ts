@@ -183,7 +183,7 @@ const paths: Record<string, string[]> = {
 export async function seedFixtureShop(db: Db, now = Date.now()) {
   const created = await createShop(db, {
     slug: env.DEMO_SHOP_SLUG,
-    name: "SaudaAI Demo Shop",
+    name: 'SaudaAI Demo Shop',
     ownerName: 'Rina',
     area: 'Mirpur, Dhaka',
     now: now - 30 * 24 * hour,

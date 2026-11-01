@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { newId } from '../db/ids.ts'
 import { productImage } from '../catalog/image.ts'
-import { postToPage } from '../channels/page.ts'
+import { postToInstagram, postToPage } from '../channels/page.ts'
 import { env } from '../env.ts'
 import { loadMedia } from '../media/store.ts'
 import { storeFor } from '../stores/index.ts'
@@ -32,6 +32,7 @@ import {
   setProductStatus,
 } from '../tools/products.ts'
 import { analyticsForAgent } from '../tools/analytics.ts'
+import { recordPost } from '../tools/posts.ts'
 import { dailySummary, salesReport } from '../tools/reports.ts'
 import { confirmationText, handoffReply, lineLabel, methodLabel, reminderText } from './copy.ts'
 import type { Conversation, Deps } from './deps.ts'
@@ -517,8 +518,45 @@ export const tools: ToolDef[] = [
     guard: () => true,
     preview: async (_ctx, a) =>
       `Post this on the Facebook Page? (${a.mediaIds.length} ${a.mediaIds.length === 1 ? 'image' : 'images'})\n\n${a.caption}`,
-    run: (ctx, a) => postToPage(ctx.db, a),
+    run: async (ctx, a) => {
+      const r = await postToPage(ctx.db, a)
+      await recordPost(ctx.db, {
+        shopId: ctx.shop.id,
+        target: 'facebook',
+        mediaIds: a.mediaIds,
+        text: a.caption,
+        url: r.url,
+        createdAt: ctx.now,
+      })
+      return r
+    },
     done: (r: { url: string }) => `Posted on the Page: ${r.url}`,
+  }),
+  tool({
+    name: 'post_to_instagram',
+    description:
+      "Post images (ads from make_ad or make_image, by mediaId; several become a carousel) with a caption on the shop's Instagram. The owner approves it first.",
+    schema: z.object({
+      mediaIds: z.array(id).min(1).max(10),
+      caption: z.string().min(1).max(2200),
+    }),
+    expose: 'seller',
+    guard: () => true,
+    preview: async (_ctx, a) =>
+      `Post this on Instagram? (${a.mediaIds.length} ${a.mediaIds.length === 1 ? 'image' : 'images'})\n\n${a.caption}`,
+    run: async (ctx, a) => {
+      const r = await postToInstagram(ctx.db, a)
+      await recordPost(ctx.db, {
+        shopId: ctx.shop.id,
+        target: 'instagram',
+        mediaIds: a.mediaIds,
+        text: a.caption,
+        url: r.url,
+        createdAt: ctx.now,
+      })
+      return r
+    },
+    done: (r: { url: string }) => `Posted on Instagram: ${r.url}`,
   }),
   tool({
     name: 'post_to_website',
@@ -542,11 +580,20 @@ export const tools: ToolDef[] = [
       }
       if (!(await loadMedia(ctx.db, a.mediaId))) throw new ToolError('not_found', 'image not found')
       try {
-        return await connector.publishPost({
+        const r = await connector.publishPost({
           title: a.title,
           body: a.text,
           imageUrl: `${env.PUBLIC_BASE_URL}/media/${a.mediaId}`,
         })
+        await recordPost(ctx.db, {
+          shopId: ctx.shop.id,
+          target: 'website',
+          mediaIds: [a.mediaId],
+          text: `${a.title}\n${a.text}`,
+          url: r.url,
+          createdAt: ctx.now,
+        })
+        return r
       } catch (err) {
         if (!(err instanceof StoreError)) throw err
         throw new ToolError(

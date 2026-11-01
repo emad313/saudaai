@@ -68,7 +68,7 @@ export function fakeShopify(
 
     switch (op) {
       case 'shop {':
-        return ok({ shop: { name: "SaudaAI Demo Shop", currencyCode: opts.currency ?? 'BDT' } })
+        return ok({ shop: { name: 'SaudaAI Demo Shop', currencyCode: opts.currency ?? 'BDT' } })
       case 'products(first':
         return Response.json(fixture(variables.cursor ? 'products-2' : 'products-1'))
       case 'product(id': {

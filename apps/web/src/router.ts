@@ -19,6 +19,7 @@ export const router = createRouter({
         { path: 'customers', component: () => import('./pages/CustomersPage.vue') },
         { path: 'customers/:id', component: () => import('./pages/CustomerPage.vue') },
         { path: 'analytics', component: () => import('./pages/AnalyticsPage.vue') },
+        { path: 'posts', component: () => import('./pages/PostsPage.vue') },
         { path: 'activity', component: () => import('./pages/ActivityPage.vue') },
         { path: 'settings', component: () => import('./pages/SettingsPage.vue') },
       ],

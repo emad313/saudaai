@@ -8,6 +8,7 @@ import { call, calls, fakeDeps, say } from '../test/deps.ts'
 import { now, testShop } from '../test/shop.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { listOrders } from '../tools/orders.ts'
+import { recordPost } from '../tools/posts.ts'
 import { findProducts } from '../tools/products.ts'
 import { createApp } from './app.ts'
 
@@ -38,6 +39,29 @@ async function signIn() {
 describe('seller api', () => {
   it('needs a session', async () => {
     expect((await app.request('/api/dashboard')).status).toBe(401)
+  })
+
+  it('lists what was posted, newest first', async () => {
+    await recordPost(t.db, {
+      shopId: t.shop.id,
+      target: 'facebook',
+      mediaIds: ['m1'],
+      text: 'Eid kurti',
+      url: 'https://www.facebook.com/p1',
+      createdAt: now,
+    })
+    await recordPost(t.db, {
+      shopId: t.shop.id,
+      target: 'website',
+      mediaIds: ['m2'],
+      text: 'Banner',
+      url: null,
+      createdAt: now + 1000,
+    })
+    const cookie = await signIn()
+    const { posts } = await (await app.request('/api/posts', { headers: { cookie } })).json()
+    expect(posts.map((p: { target: string }) => p.target)).toEqual(['website', 'facebook'])
+    expect(posts[1]).toMatchObject({ images: ['/media/m1'], url: 'https://www.facebook.com/p1' })
   })
 
   it('rejects a used login code', async () => {
@@ -91,7 +115,7 @@ describe('website widget', () => {
   it('issues a session and refuses messages without one', async () => {
     expect((await app.request('/api/w/not-a-key')).status).toBe(404)
     const info = await (await app.request(`/api/w/${key()}`)).json()
-    expect(info).toMatchObject({ name: "SaudaAI Demo Shop" })
+    expect(info).toMatchObject({ name: 'SaudaAI Demo Shop' })
     expect(info.session).toMatch(/^[a-z0-9]{24}$/)
     const res = await app.request(`/api/w/${key()}/messages`, {
       method: 'POST',

@@ -31,6 +31,7 @@ const groups = [
       { to: '/catalog', label: 'Catalog', icon: 'catalog' },
       { to: '/customers', label: 'Customers', icon: 'customers' },
       { to: '/inbox', label: 'Inbox', icon: 'inbox' },
+      { to: '/posts', label: 'Posts', icon: 'image' },
     ],
   },
   {

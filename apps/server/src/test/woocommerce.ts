@@ -18,7 +18,7 @@ export function fakeWoo(opts: { currency?: string } = {}) {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
     const path = url.pathname.replace('/wp-json/wc/v3', '')
     calls.push({ method, path, body })
-    if (url.pathname === '/wp-json/') return json({ name: "Test Woo Shop" })
+    if (url.pathname === '/wp-json/') return json({ name: 'Test Woo Shop' })
     if ((init?.headers as Record<string, string>).authorization !== auth) {
       return json(
         { code: 'woocommerce_rest_cannot_view', message: 'Sorry, you cannot list resources.' },

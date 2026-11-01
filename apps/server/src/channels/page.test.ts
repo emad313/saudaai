@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env } from '../env.ts'
 import { saveMedia } from '../media/store.ts'
 import { testShop } from '../test/shop.ts'
-import { postToPage } from './page.ts'
+import { postToInstagram, postToPage } from './page.ts'
 
 let t: Awaited<ReturnType<typeof testShop>>
 let calls: { url: string; form: Record<string, string> }[]
@@ -73,5 +73,31 @@ describe('postToPage', () => {
     await expect(postToPage(t.db, { mediaIds: [ad.id], caption: 'x' })).rejects.toMatchObject({
       code: 'facebook_refused',
     })
+  })
+})
+
+describe('postToInstagram', () => {
+  it('publishes a jpeg copy of the ad from the public url', async () => {
+    env.INSTAGRAM_ACCOUNT_ID = 'IG1'
+    const base = env.PUBLIC_BASE_URL
+    env.PUBLIC_BASE_URL = 'https://saudaai.example'
+    const sent: { url: string; body: Record<string, unknown> }[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (!init?.body) return Response.json({ permalink: 'https://www.instagram.com/p/abc/' })
+      sent.push({ url, body: JSON.parse(String(init.body)) })
+      return Response.json({ id: url.endsWith('media_publish') ? 'post9' : 'container1' })
+    })
+    try {
+      const ad = await image('#1a8cf0')
+      const res = await postToInstagram(t.db, { mediaIds: [ad.id], caption: 'Notun kurti' })
+      expect(res).toEqual({ postId: 'post9', url: 'https://www.instagram.com/p/abc/' })
+      expect(sent[0]!.url).toMatch(/\/IG1\/media$/)
+      expect(sent[0]!.body.image_url).toMatch(/^https:\/\/saudaai\.example\/media\/\w+$/)
+      expect(sent[0]!.body.image_url).not.toContain(ad.id)
+      expect(sent[1]!.body).toEqual({ creation_id: 'container1' })
+    } finally {
+      env.INSTAGRAM_ACCOUNT_ID = undefined
+      env.PUBLIC_BASE_URL = base
+    }
   })
 })
