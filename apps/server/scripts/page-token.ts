@@ -22,7 +22,13 @@ const res = await request(`${graphUrl('oauth/access_token')}?${params}`, {
 })
 const { access_token: longToken } = (await res.json()) as { access_token: string }
 
-const accounts = await graphGet('me/accounts?fields=id,name,access_token', longToken)
+const accounts = await graphGet('me/accounts?fields=id,name,access_token', longToken).catch(
+  (err: Error) => {
+    if (!/nonexisting field \(accounts\)/.test(err.message)) throw err
+    console.log('that is a page token; in Graph API Explorer set "User or Page" to "User Token"')
+    process.exit(1)
+  },
+)
 const pages = (accounts.data ?? []) as { id: string; name: string; access_token: string }[]
 if (!pages.length) {
   console.log('no pages for this user; grant pages_show_list and pages_messaging in the explorer')
