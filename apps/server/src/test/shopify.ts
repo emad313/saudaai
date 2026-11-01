@@ -7,7 +7,12 @@ export const shopifyDomain = 'nusrat-test.myshopify.com'
 
 // Answers Admin GraphQL from fixtures, keyed on the operation in the query text.
 export function fakeShopify(
-  opts: { throttleFirst?: boolean; currency?: string; noCustomerData?: boolean } = {},
+  opts: {
+    throttleFirst?: boolean
+    currency?: string
+    noCustomerData?: boolean
+    noShipping?: boolean
+  } = {},
 ) {
   const ops: { op: string; variables: Record<string, unknown> }[] = []
   let throttled = !opts.throttleFirst
@@ -42,6 +47,7 @@ export function fakeShopify(
       'order(id: $id) { id name',
       'draftOrderCreate',
       'draftOrderComplete',
+      'draftOrderDelete',
       'orderCancel',
       'fulfillmentCreate',
       'fulfillmentOrders',
@@ -105,7 +111,22 @@ export function fakeShopify(
           draftOrderCreate: { draftOrder: { id: 'gid://shopify/DraftOrder/777' }, ...none },
         })
       case 'draftOrderComplete':
+        if (opts.noShipping) {
+          return ok({
+            draftOrderComplete: {
+              draftOrder: null,
+              userErrors: [
+                {
+                  message:
+                    'Your cart has been updated and the items you added can’t be shipped to your address. Remove the items to complete your order.',
+                },
+              ],
+            },
+          })
+        }
         return Response.json(fixture('draft-complete'))
+      case 'draftOrderDelete':
+        return ok({ draftOrderDelete: none })
       case 'totalPriceSet { shopMoney { amount } } } }':
         return ok({ order: { totalPriceSet: { shopMoney: { amount: '3060.00' } } } })
       case 'fulfillmentOrders':

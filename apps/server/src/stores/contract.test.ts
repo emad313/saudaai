@@ -305,6 +305,21 @@ describe('shopify specifics', () => {
     })
   })
 
+  it('deletes the draft and explains when the store does not ship to the address', async () => {
+    const { shopify, connector } = await connect({ noShipping: true })
+    const made = connector.createOrder({
+      customer: { name: 'Mitu Akter', area: 'Mirpur' },
+      lines: [{ variantExternalId: 'gid://shopify/ProductVariant/9001', qty: 1 }],
+      shippingPoisha: 6000,
+      paymentMethod: 'cod',
+      tags: ['saudaai'],
+    })
+    await expect(made).rejects.toThrow('add Bangladesh to a shipping zone')
+    expect(shopify.ops.find((o) => o.op === 'draftOrderDelete')!.variables).toEqual({
+      input: { id: 'gid://shopify/DraftOrder/777' },
+    })
+  })
+
   it('explains how to fix missing protected customer data access', async () => {
     const { connector } = await connect({ noCustomerData: true })
     const made = connector.createOrder({

@@ -347,6 +347,7 @@ export function shopifyConnector(
         },
       )
       userErrors(draft.draftOrderCreate)
+      const draftId = draft.draftOrderCreate.draftOrder!.id
       const done = await gql<{
         draftOrderComplete: {
           draftOrder: {
@@ -360,9 +361,22 @@ export function shopifyConnector(
         }
       }>(
         `mutation($id: ID!) { draftOrderComplete(id: $id, paymentPending: true) { draftOrder { order { id name totalPriceSet { shopMoney { amount } } } } userErrors { message } } }`,
-        { id: draft.draftOrderCreate.draftOrder!.id },
+        { id: draftId },
       )
-      userErrors(done.draftOrderComplete)
+      const refused = done.draftOrderComplete.userErrors[0]
+      if (refused) {
+        // A refused draft would pile up in the admin on every retry.
+        await gql(
+          `mutation($input: DraftOrderDeleteInput!) { draftOrderDelete(input: $input) { userErrors { message } } }`,
+          { input: { id: draftId } },
+        ).catch(() => undefined)
+        if (/shipped to your address|can.t be shipped/i.test(refused.message)) {
+          throw new StoreError(
+            'shopify does not ship to Bangladesh yet: in Shopify Settings > Shipping and delivery add Bangladesh to a shipping zone, then confirm again',
+          )
+        }
+        throw new StoreError(`shopify: ${refused.message}`)
+      }
       const order = done.draftOrderComplete.draftOrder?.order
       if (!order) throw new StoreError('shopify: draft order did not become an order')
       return {
