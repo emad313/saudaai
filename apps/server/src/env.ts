@@ -44,6 +44,7 @@ const schema = z.object({
   TELEGRAM_WEBHOOK_SECRET: optional,
 
   GRAPH_API_VERSION: z.string().default('v23.0'),
+  META_APP_ID: optional,
   META_APP_SECRET: optional,
   META_VERIFY_TOKEN: optional,
   MESSENGER_PAGE_ID: optional,

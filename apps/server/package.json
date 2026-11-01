@@ -13,7 +13,8 @@
     "eval": "tsx --env-file-if-exists=../../.env evals/run.ts",
     "spike": "tsx --env-file-if-exists=../../.env scripts/spike.ts",
     "webhooks:set": "tsx --env-file-if-exists=../../.env scripts/webhooks.ts",
-    "demo:link": "tsx --env-file-if-exists=../../.env scripts/link-store.ts"
+    "demo:link": "tsx --env-file-if-exists=../../.env scripts/link-store.ts",
+    "page:token": "tsx --env-file-if-exists=../../.env scripts/page-token.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-bengali": "^5.3.0",
