@@ -33,7 +33,7 @@ export type Models = {
   transcribe(audio: Buffer, mime: string): Promise<string>
   segment(image: Buffer, prompt: string): Promise<Buffer | null>
   describe(image: Buffer, hint: string): Promise<ProductAttributes>
-  image(prompt: string, size: ImageSize): Promise<Buffer>
+  image(prompt: string, size: ImageSize, refs?: Buffer[]): Promise<Buffer>
   readonly agentProvider: string
 }
 
@@ -265,16 +265,22 @@ export function createModels(db: Db, env: Env): Models {
       return productAttributes.parse(raw)
     },
 
-    async image(prompt, size) {
+    async image(prompt, size, refs = []) {
       const ep = meta(env.META_IMAGE_MODEL, 'META_IMAGE_MODEL')
       const b64 = await track<string>({
         purpose: 'image',
         provider: ep.provider,
         model: ep.model,
-        cacheKey: hashOf('image', ep.model, size, prompt),
+        cacheKey: hashOf('image', ep.model, size, prompt, ...refs),
         run: async () => {
+          // With reference images the edits endpoint takes them as data URLs in `images`.
+          const images = await Promise.all(
+            refs.map(async (r) => ({
+              image_url: `data:image/jpeg;base64,${(await sharp(r).rotate().jpeg({ quality: 88 }).toBuffer()).toString('base64')}`,
+            })),
+          )
           const body = await postJson<{ data?: { b64_json?: string; url?: string }[] }>(
-            `${ep.baseUrl.replace(/\/$/, '')}/images/generations`,
+            `${ep.baseUrl.replace(/\/$/, '')}/images/${images.length ? 'edits' : 'generations'}`,
             ep.key,
             {
               model: ep.model,
@@ -283,8 +289,9 @@ export function createModels(db: Db, env: Env): Models {
               n: 1,
               response_format: 'b64_json',
               output_format: 'webp',
+              ...(images.length ? { images } : {}),
             },
-            60_000,
+            90_000,
           )
           const first = body.data?.[0]
           if (first?.b64_json) return { value: first.b64_json }

@@ -89,6 +89,24 @@ describe('seller turn', () => {
     })
     expect(res.calls[0]).toMatchObject({ name: 'adjust_stock', decision: 'invalid', ok: false })
   })
+
+  it('makes a new image for the seller without a store photo', async () => {
+    const f = fakeDeps(t.db, [
+      calls(call('make_image', { prompt: 'a maroon kurti on a model, studio light' })),
+      say('Image banano holo.'),
+    ])
+    const conv = await chat(t.db, t.shop.id, 'kurti er poster banao', {
+      channel: 'telegram_seller',
+    })
+    const res = await runTurn(f.deps, {
+      shop: t.shop,
+      actor: 'seller',
+      conversation: conv,
+      inputKind: 'text',
+    })
+    expect(res.calls[0]).toMatchObject({ name: 'make_image', decision: 'run', ok: true })
+    expect(f.sellerMedia).toHaveLength(1)
+  })
 })
 
 describe('customer turn', () => {

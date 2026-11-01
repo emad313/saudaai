@@ -459,6 +459,45 @@ export const tools: ToolDef[] = [
       `${r.mediaIds.length} ads made for ${r.product}`,
   }),
   tool({
+    name: 'make_image',
+    description:
+      'Create a new image for the seller with the image model: a poster, banner or styled product picture from a description, optionally in the style of photos the seller sent (referenceMediaIds) and with store product photos in it (productIds). headline and text are laid over the image exactly as given; any price in them must come from tool results. The image is sent to the seller and can then go to post_to_page or post_to_website. Never for customers.',
+    schema: z.object({
+      prompt: z
+        .string()
+        .min(3)
+        .max(1500)
+        .describe(
+          'In English: what to draw, the style, colors and mood, and how to use each reference image ("same layout and colors as the first image", "put the dress from the second image on a model").',
+        ),
+      referenceMediaIds: z.array(id).max(4).optional(),
+      productIds: z.array(id).max(4).optional(),
+      format: z.enum(['square', 'story', 'banner']).optional(),
+      headline: z.string().max(60).optional(),
+      text: z.string().max(120).optional(),
+    }),
+    expose: 'seller',
+    run: async (ctx, a) => {
+      const refs = [...(a.referenceMediaIds ?? [])]
+      for (const productId of a.productIds ?? []) {
+        const p = await requireProduct(ctx, productId)
+        const image = await productImage(ctx.db, p)
+        if (!image) throw new ToolError('no_photo', `${p.name} has no photo in the store yet`)
+        refs.push(image.id)
+      }
+      const made = await ctx.deps.render.design(ctx.shop, {
+        prompt: a.prompt,
+        refs,
+        format: a.format ?? 'square',
+        headline: a.headline,
+        text: a.text,
+      })
+      await ctx.deps.seller.sendMedia(ctx.shop, [made.id], a.headline ?? 'New image')
+      return { mediaId: made.id, format: a.format ?? 'square' }
+    },
+    done: (r: { format: string }) => `Made a ${r.format} image`,
+  }),
+  tool({
     name: 'post_to_page',
     description:
       "Post images (usually ads from make_ad, by mediaId) with a caption on the shop's Facebook Page. Write the caption in the shop's voice with the price from the tool results. The owner approves it first.",
@@ -557,7 +596,7 @@ export const tools: ToolDef[] = [
   }),
   tool({
     name: 'send_product_photo',
-    description: 'Send the product photo with its name and price to the customer.',
+    description: 'Send the store photo of a product with its name and price to the customer.',
     schema: z.object({ productId: id }),
     expose: 'customer',
     run: async (ctx, a) => {

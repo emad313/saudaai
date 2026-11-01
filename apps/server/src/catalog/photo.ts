@@ -85,7 +85,7 @@ export function photoNote(r: PhotoResult, caption: string) {
   const seen = a
     ? `looks like: ${[a.colors.join('/'), a.pattern, a.material, a.category].filter(Boolean).join(' ')}; suggested name "${a.nameSuggestion}"; aliases ${JSON.stringify(a.aliases)}`
     : 'could not read the photo'
-  return `[sent a product photo, cleaned image mediaId=${r.cutout.id}; ${seen}] ${caption}`.trim()
+  return `[sent a photo mediaId=${r.original.id}; as a product photo the cleaned image is mediaId=${r.cutout.id}; ${seen}] ${caption}`.trim()
 }
 
 export async function describeCustomerPhoto(deps: Deps, photo: Buffer, caption: string) {

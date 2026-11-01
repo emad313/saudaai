@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import sharp from 'sharp'
 import { env } from '../env.ts'
 import { newId } from '../db/ids.ts'
 import { modelCalls } from '../db/schema.ts'
@@ -56,6 +57,33 @@ describe('createModels', () => {
       'BASETEN_API_KEY is not set',
     )
     expect(sent).toEqual([])
+  })
+})
+
+describe('image', () => {
+  it('sends reference images to the edits endpoint, plain prompts to generations', async () => {
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      sent.push({ url, body: JSON.parse(String(init.body)) })
+      return Response.json({ data: [{ b64_json: Buffer.from('img').toString('base64') }] })
+    })
+    const { db } = await testShop()
+    const models = createModels(db, { ...meta, META_IMAGE_MODEL: 'muse-image-1.0' })
+    const ref = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: '#123456' },
+    })
+      .png()
+      .toBuffer()
+
+    await models.image('a poster', '1024x1024')
+    await models.image('like this', '1024x1024', [ref])
+
+    expect(sent.map((s) => s.url)).toEqual([
+      'https://meta.test/v1/images/generations',
+      'https://meta.test/v1/images/edits',
+    ])
+    const images = (sent[1]!.body as { images: { image_url: string }[] }).images
+    expect(images).toHaveLength(1)
+    expect(images[0]!.image_url).toMatch(/^data:image\/jpeg;base64,/)
   })
 })
 

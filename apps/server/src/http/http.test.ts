@@ -332,7 +332,7 @@ describe('command box photo', () => {
     })
     expect((await res.json()).replies[0].text).toBe('Dam koto rakhbo?')
     const said = String(f.seen[0]!.messages.at(-1)!.content)
-    expect(said).toContain('sent a product photo')
+    expect(said).toContain('as a product photo')
     expect(said).toContain('notun kurti, M 3 ta L 2 ta')
 
     const bad = new FormData()

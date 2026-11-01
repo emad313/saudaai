@@ -93,3 +93,24 @@
     calls: [make_ad]
     pending: [post_to_page]
     noOrder: true
+
+- id: image-not-in-store
+  category: promotion
+  actor: seller
+  input: ekta kurti er sundor poster image banao, store theke na, tumi nije baniye dao
+  expect:
+    calls: [make_image]
+    noPending: true
+    noProduct: true
+    noOrder: true
+
+- id: image-like-reference
+  category: promotion
+  actor: seller
+  setup: { photo: true }
+  input: '[sent a photo mediaId={{media}}; as a product photo the cleaned image is mediaId={{media}}; looks like: red sale banner with a woman in a saree; suggested name "Sale Banner"; aliases []] eta moto ekta banner banao amader Jersey hijab diye, facebook page e post koro'
+  expect:
+    calls: [make_image]
+    pending: [post_to_page]
+    noProduct: true
+    noOrder: true

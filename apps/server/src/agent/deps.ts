@@ -1,3 +1,4 @@
+import type { DesignInput } from '../render/design.ts'
 import type { Db } from '../db/client.ts'
 import type { conversations, pendingActions } from '../db/schema.ts'
 import type { Media } from '../media/store.ts'
@@ -28,6 +29,7 @@ export type Renderer = {
     shop: Shop,
     input: { productId: string; occasion?: string; offerText?: string; formats: AdFormat[] },
   ): Promise<Media[]>
+  design(shop: Shop, input: DesignInput): Promise<Media>
 }
 
 export type Deps = {

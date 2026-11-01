@@ -196,6 +196,7 @@ async function runIn(
     render: {
       invoice: async () => saveMedia(db, await png(), 'image/png'),
       ad: async () => [await saveMedia(db, await png(), 'image/png')],
+      design: async () => saveMedia(db, await png(), 'image/png', { role: 'ad' }),
     },
   }
 
@@ -227,7 +228,7 @@ async function runIn(
   }
   let input = c.input
   if (s.photo)
-    input = input.replace(
+    input = input.replaceAll(
       '{{media}}',
       (await saveMedia(db, await png(), 'image/jpeg', { role: 'catalog' })).id,
     )

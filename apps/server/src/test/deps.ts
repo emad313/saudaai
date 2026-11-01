@@ -97,6 +97,9 @@ export function fakeDeps(db: Db, script: Step[] = []) {
       async ad() {
         return [await saveMedia(db, await png(), 'image/png')]
       },
+      async design() {
+        return saveMedia(db, await png(), 'image/png', { role: 'ad' })
+      },
     },
   }
   return {
