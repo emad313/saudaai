@@ -41,6 +41,15 @@ describe('seller api', () => {
     expect((await app.request('/api/dashboard')).status).toBe(401)
   })
 
+  it('serves the docs from the repository', async () => {
+    const cookie = await signIn()
+    const { groups } = await (await app.request('/api/docs', { headers: { cookie } })).json()
+    expect(groups[0].docs[0]).toEqual({ slug: 'guide', title: 'Setting up your shop' })
+    const guide = await (await app.request('/api/docs/guide', { headers: { cookie } })).json()
+    expect(guide.markdown).toContain('# Setting up SaudaAI')
+    expect((await app.request('/api/docs/..%2F.env', { headers: { cookie } })).status).toBe(404)
+  })
+
   it('lists what was posted, newest first', async () => {
     await recordPost(t.db, {
       shopId: t.shop.id,

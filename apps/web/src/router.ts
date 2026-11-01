@@ -22,6 +22,7 @@ export const router = createRouter({
         { path: 'posts', component: () => import('./pages/PostsPage.vue') },
         { path: 'activity', component: () => import('./pages/ActivityPage.vue') },
         { path: 'settings', component: () => import('./pages/SettingsPage.vue') },
+        { path: 'docs/:slug?', component: () => import('./pages/DocsPage.vue') },
       ],
     },
   ],

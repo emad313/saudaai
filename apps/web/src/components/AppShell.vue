@@ -39,6 +39,7 @@ const groups = [
     links: [
       { to: '/activity', label: 'Agent log', icon: 'log' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
+      { to: '/docs', label: 'Docs', icon: 'file' },
     ],
   },
 ] as const

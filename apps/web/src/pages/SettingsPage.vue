@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { send } from '../api.ts'
 import StoreConnect from '../components/StoreConnect.vue'
 import { currencies } from '@saudaai/shared'
@@ -73,8 +73,9 @@ async function save() {
 
 onMounted(fill)
 const copied = ref(false)
+const snippet = computed(() => session.me?.widgetSnippetShopify ?? session.me?.widgetSnippet ?? '')
 async function copySnippet() {
-  await navigator.clipboard.writeText(session.me?.widgetSnippet ?? '')
+  await navigator.clipboard.writeText(snippet.value)
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }
@@ -259,12 +260,40 @@ const switches = [
         <div class="px-5 pb-5">
           <pre
             class="mt-3 overflow-x-auto rounded-lg bg-night p-3 text-xs leading-relaxed whitespace-pre-wrap text-white/90"
-            >{{ session.me?.widgetSnippet }}</pre>
-          <p class="mt-2 text-sm text-muted">
-            Paste this before &lt;/body&gt; on your website (Shopify: theme.liquid, WooCommerce: a
-            footer code plugin). Customers can then chat, send voice notes and order from any page.
+            >{{ snippet }}</pre>
+          <p v-if="session.me?.widgetSnippetShopify" class="mt-2 text-sm text-muted">
+            In Shopify open Online Store, Themes, Edit code, <code>layout/theme.liquid</code>, and
+            paste this just before &lt;/body&gt;. On product pages the assistant then knows which
+            product the customer is looking at.
           </p>
+          <p v-else class="mt-2 text-sm text-muted">
+            Paste this before &lt;/body&gt; on your website (WooCommerce: a footer code plugin).
+            Customers can then chat, send voice notes and order from any page.
+          </p>
+          <p
+            v-if="session.me && !session.me.publicUrl.startsWith('https://')"
+            class="mt-2 text-sm text-warn"
+          >
+            SaudaAI runs on {{ session.me.publicUrl }}, which other sites cannot reach. Deploy it on
+            a public https address before adding the chat to a live store.
+          </p>
+          <RouterLink to="/docs/guide" class="mt-2 inline-block text-sm font-medium text-ink"
+            >Step-by-step guide</RouterLink
+          >
         </div>
+      </section>
+      <section v-if="session.me?.channels" class="panel">
+        <h2 class="card-head">Channels</h2>
+        <div v-for="ch in session.me.channels" :key="ch.name" class="row py-2.5">
+          <span class="text-sm">{{ ch.name }}</span>
+          <span class="text-sm" :class="ch.on ? 'text-good' : 'text-muted'">{{
+            ch.on ? 'Connected' : 'Not set up'
+          }}</span>
+        </div>
+        <p class="px-5 py-3 text-xs text-muted">
+          Channels are connected with keys in the server's .env;
+          <RouterLink to="/docs/guide" class="text-ink">see the guide</RouterLink>.
+        </p>
       </section>
     </aside>
   </div>

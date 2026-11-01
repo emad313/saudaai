@@ -49,6 +49,7 @@ import { pullStore } from '../stores/sync.ts'
 import { StoreError } from '../stores/types.ts'
 import { analytics } from '../tools/analytics.ts'
 import { listPosts } from '../tools/posts.ts'
+import { availableDocs, readDoc } from './docs.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
@@ -95,7 +96,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
           },
           { job: 'Voice notes', model: env.META_TRANSCRIBE_MODEL ?? null },
           { job: 'Product cutout', model: env.META_SAM_MODEL ?? null },
-          { job: 'Ad backgrounds', model: env.META_IMAGE_MODEL ?? null },
+          { job: 'Ads and images', model: env.META_IMAGE_MODEL ?? null },
         ],
         callsToday: Number(calls?.n ?? 0),
         dailyLimit: env.MODEL_DAILY_CALL_LIMIT,
@@ -114,6 +115,26 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       linkCode: c.get('readonly') ? null : shop.linkCode,
       readonly: c.get('readonly'),
       widgetSnippet: `<script src="${env.PUBLIC_BASE_URL}/widget.js" data-shop="${shop.publicKey}" defer></script>`,
+      // On Shopify product pages the widget also tells the assistant which product is open.
+      widgetSnippetShopify:
+        row?.kind === 'shopify'
+          ? `<script src="${env.PUBLIC_BASE_URL}/widget.js" data-shop="${shop.publicKey}" {% if product %}data-product="gid://shopify/Product/{{ product.id }}"{% endif %} defer></script>`
+          : null,
+      publicUrl: env.PUBLIC_BASE_URL,
+      channels: [
+        { name: 'Telegram (you)', on: Boolean(env.TELEGRAM_BOT_TOKEN) },
+        { name: 'Messenger', on: Boolean(env.MESSENGER_PAGE_ID && env.MESSENGER_PAGE_TOKEN) },
+        {
+          name: 'Facebook Page posts',
+          on: Boolean(env.MESSENGER_PAGE_ID && env.MESSENGER_PAGE_TOKEN),
+        },
+        {
+          name: 'Instagram',
+          on: Boolean(env.INSTAGRAM_ACCOUNT_ID && env.MESSENGER_PAGE_TOKEN),
+        },
+        { name: 'WhatsApp', on: Boolean(env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_TOKEN) },
+        { name: 'Website chat', on: true },
+      ],
     })
   })
 
@@ -206,6 +227,14 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       throw new HTTPException(400, { message: 'dates are YYYY-MM-DD' })
     }
     return c.json(await analytics(ctx(c.get('shop')), { from, to }))
+  })
+
+  app.get('/docs', (c) => c.json({ groups: availableDocs() }))
+
+  app.get('/docs/:slug', async (c) => {
+    const doc = await readDoc(c.req.param('slug'))
+    if (!doc) throw new HTTPException(404, { message: 'no such doc' })
+    return c.json(doc)
   })
 
   app.get('/posts', async (c) => {

@@ -25,6 +25,9 @@ export type Me = {
     dailyLimit: number
   }
   widgetSnippet: string
+  widgetSnippetShopify: string | null
+  publicUrl: string
+  channels: { name: string; on: boolean }[]
 }
 
 export type OrderRow = {
