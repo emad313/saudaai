@@ -44,6 +44,8 @@ type Parts = {
   product: string
   cutout: boolean
   background: string | null
+  // the image model already placed the product in the background scene
+  inScene?: boolean
 }
 
 function priceBlock(p: Parts, size: number) {
@@ -69,6 +71,7 @@ type Box = [left: number, top: number, width: number, height: number]
 
 // A clean cutout floats over the scene; a plain photo gets a square card so it never looks letterboxed.
 function productImg(p: Parts, cutout: Box, framed: Box) {
+  if (p.inScene) return ''
   const [left, top, width, height] = p.cutout ? cutout : framed
   const look = p.cutout
     ? 'object-fit:contain;filter:drop-shadow(0 30px 40px rgba(0,0,0,.35))'
@@ -123,9 +126,9 @@ const layouts: Record<string, (p: Parts) => string> = {
       <div style="margin-top:40px">${footer(p)}</div></div></div>`,
 }
 
-async function background(models: Models, prompt: string, size: ImageSize) {
+async function background(models: Models, prompt: string, size: ImageSize, refs: Buffer[] = []) {
   try {
-    const scene = await models.image(prompt, size)
+    const scene = await models.image(prompt, size, refs)
     return `data:image/webp;base64,${scene.toString('base64')}`
   } catch (err) {
     log.warn(
@@ -149,6 +152,7 @@ export async function renderAds(
   const cut = await derived(db, image.id, 'cutout')
   const file = await loadMedia(db, cut?.id ?? image.id)
   if (!file) throw new ToolError('no_photo', `photo for ${p.name} is missing`)
+  const photo = cut ? ((await loadMedia(db, image.id)) ?? file) : file
   const sale = offerPrice(p.basePricePoisha, input.offerText)
   const attrs = Object.values(p.attributes).flat().join(' ')
   const prompt = `Product photography background for ${p.category} ${attrs}, ${input.occasion ?? 'new collection'} mood, soft studio light, warm elegant palette, empty space for text, no people, no text, no letters, no logos`
@@ -175,15 +179,28 @@ export async function renderAds(
   const out: Media[] = []
   for (const [layout, format] of jobs) {
     const s = sizes[format]
-    const bg = await background(
-      models,
-      `${prompt}, ${layout === 'side' || layout === 'wide' ? 'subject space on the right' : 'centered'}`,
-      s.model,
+    const side = layout === 'side' || layout === 'wide'
+    // The band layout always shows the store photo as it is; the others ask the model to stage the product.
+    const staged =
+      layout === 'band'
+        ? null
+        : await background(
+            models,
+            `Advertising photo of the ${p.category} in the image, exactly the same design, colors and pattern, ${input.occasion ?? 'new collection'} mood, styled lifestyle scene, soft light, ${side ? 'product on the right, calm empty space on the left for text' : 'product in the middle, calm space at the top and bottom for text'}, nothing else added to the scene, no gadgets, no text, no letters, no logos`,
+            s.model,
+            [photo.bytes],
+          )
+    const bg =
+      staged ??
+      (await background(
+        models,
+        `${prompt}, ${side ? 'subject space on the right' : 'centered'}`,
+        s.model,
+      ))
+    const png = await screenshot(
+      layouts[layout]!({ ...parts, background: bg, inScene: staged !== null }),
+      { width: s.width, height: s.height },
     )
-    const png = await screenshot(layouts[layout]!({ ...parts, background: bg }), {
-      width: s.width,
-      height: s.height,
-    })
     out.push(await saveMedia(db, png, 'image/png', { role: 'ad', derivedFrom: image.id }))
   }
   return out
