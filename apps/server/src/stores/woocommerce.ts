@@ -380,6 +380,7 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
         'GET',
         '/webhooks?per_page=100',
       )
+      const refused: { topic: string; reason: string }[] = []
       for (const topic of [
         'product.created',
         'product.updated',
@@ -394,8 +395,9 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
           delivery_url: url,
           secret,
           status: 'active',
-        })
+        }).catch((err: Error) => refused.push({ topic, reason: err.message }))
       }
+      return refused
     },
 
     async parseWebhook({ headers, raw }) {

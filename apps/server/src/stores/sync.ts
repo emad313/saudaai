@@ -348,10 +348,21 @@ export async function pullStore(db: Db, store: StoreRow, connector: StoreConnect
           seen.length ? notInArray(products.externalId, seen) : undefined,
         ),
       )
-    const imported = await pullOrders(db, store, connector, now)
+    // Order access is often a separate permission (Shopify protected customer data); products still count.
+    let imported = 0
+    let ordersError: string | null = null
+    try {
+      imported = await pullOrders(db, store, connector, now)
+    } catch (err) {
+      ordersError = `orders not synced: ${err instanceof Error ? err.message : String(err)}`.slice(
+        0,
+        500,
+      )
+      log.warn({ storeId: store.id, err: ordersError }, 'store orders not synced')
+    }
     await db
       .update(stores)
-      .set({ status: 'connected', lastSyncAt: now, lastError: null })
+      .set({ status: 'connected', lastSyncAt: now, lastError: ordersError })
       .where(eq(stores.id, store.id))
     log.info({ storeId: store.id, products: seen.length, imported }, 'store synced')
     return { products: seen.length, ordersImported: imported }

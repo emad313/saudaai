@@ -17,6 +17,7 @@ type StoreView = {
   webhookUrl?: string
   webhookSecret?: string | null
   webhooksAutomatic?: boolean
+  webhooksRefused?: { topic: string; reason: string }[]
 }
 
 const session = useSession()
@@ -147,6 +148,18 @@ onMounted(load)
       </div>
 
       <div v-if="connected" class="rounded-lg bg-cloud p-4 text-sm">
+        <div v-if="store.webhooksRefused?.length" class="mb-3 rounded-lg bg-warn/10 p-3 text-warn">
+          <p class="font-medium">
+            The store refused live updates for:
+            {{ store.webhooksRefused.map((w) => w.topic).join(', ') }}
+          </p>
+          <p class="mt-1">{{ store.webhooksRefused[0]!.reason }}</p>
+          <p v-if="store.kind === 'shopify'" class="mt-1">
+            Order topics need protected customer data access (Shopify admin, Apps, Develop apps,
+            your app, Configuration, Protected customer data access); inventory needs the
+            read_inventory scope. Then connect again. Until then a full sync runs every 30 minutes.
+          </p>
+        </div>
         <p v-if="store.webhooksAutomatic" class="text-good">
           Store updates are sent here automatically. A full sync also runs every 30 minutes.
         </p>

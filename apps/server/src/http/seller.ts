@@ -29,6 +29,7 @@ import {
   shops,
 } from '../db/schema.ts'
 import type { Inbox } from '../inbox.ts'
+import { log } from '../log.ts'
 import { invoicePdf } from '../render/invoice.ts'
 import type { Ctx, Shop } from '../tools/ctx.ts'
 import { customerView, requireCustomer } from '../tools/customers.ts'
@@ -227,20 +228,24 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
                 baseUrl: p.baseUrl,
                 credentials: { consumerKey: p.consumerKey, consumerSecret: p.consumerSecret },
               }
+    let refused: { topic: string; reason: string }[] = []
     try {
       const { row, connector } = await connectStore(db, shop, input, deps.now())
       if (connector) {
         await pullStore(db, row, connector, deps.now())
         // Stores cannot call a laptop on http://localhost; locally the 30 minute pull covers it.
         if (connector.registerWebhooks && env.PUBLIC_BASE_URL.startsWith('https://')) {
-          await connector.registerWebhooks(`${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`)
+          refused = await connector.registerWebhooks(
+            `${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`,
+          )
+          if (refused.length) log.warn({ shopId: shop.id, refused }, 'store refused some webhooks')
         }
       }
     } catch (err) {
       if (err instanceof StoreError) throw new HTTPException(400, { message: err.message })
       throw err
     }
-    return c.json(await storeView(shop))
+    return c.json({ ...(await storeView(shop)), webhooksRefused: refused })
   })
 
   app.post('/store/sync', async (c) => {

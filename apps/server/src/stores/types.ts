@@ -81,7 +81,8 @@ export interface StoreConnector {
   adjustStock?(variantExternalId: string, delta: number): Promise<number>
   createProduct?(p: Omit<ExternalProduct, 'externalId'>): Promise<ExternalProduct>
   publishProduct?(externalId: string): Promise<void>
-  registerWebhooks?(url: string): Promise<void>
+  // Returns the topics the store refused, with its reason; the others are subscribed.
+  registerWebhooks?(url: string): Promise<{ topic: string; reason: string }[]>
   publishPost?(post: { title: string; body: string; imageUrl: string }): Promise<{ url: string }>
   parseWebhook(req: { headers: Record<string, string>; raw: string }): Promise<StoreEvent[]>
 }

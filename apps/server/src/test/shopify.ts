@@ -69,6 +69,14 @@ export function fakeShopify(opts: { throttleFirst?: boolean; currency?: string }
         ]
         return ok({ product: all.find((p: { id: string }) => p.id === variables.id) ?? null })
       }
+      case 'webhookSubscriptionCreate':
+        return ok({
+          webhookSubscriptionCreate: {
+            userErrors: String(variables.topic).startsWith('ORDERS')
+              ? [{ message: 'You cannot create a webhook subscription with the specified topic' }]
+              : [],
+          },
+        })
       case 'blogs(first':
         return ok({ blogs: { nodes: [{ id: 'gid://shopify/Blog/1', handle: 'news' }] } })
       case 'articleCreate':

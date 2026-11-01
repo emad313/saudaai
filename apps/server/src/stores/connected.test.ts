@@ -297,3 +297,19 @@ describe('orders placed on the website', () => {
     expect(await pullStore(t.db, row, connector!, t.ctx().now)).toMatchObject({ ordersImported: 0 })
   })
 })
+
+describe('order access refused', () => {
+  it('still syncs products and says why orders were skipped', async () => {
+    const row = await connect()
+    const real = site.fetch
+    vi.stubGlobal('fetch', (async (input: string | URL | Request, init?: RequestInit) =>
+      String(input).includes('/saudaai/orders')
+        ? new Response('{"error":"protected customer data"}', { status: 403 })
+        : real(input, init)) as typeof fetch)
+    const { connector } = await storeFor(t.db, t.shop.id)
+    expect(await pullStore(t.db, row, connector!, t.ctx().now)).toMatchObject({ products: 2 })
+    const { row: after } = await storeFor(t.db, t.shop.id)
+    expect(after).toMatchObject({ status: 'connected' })
+    expect(after!.lastError).toContain('orders not synced')
+  })
+})

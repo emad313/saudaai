@@ -534,6 +534,7 @@ export function shopifyConnector(
 
     // Subscriptions made through the API are signed with the app secret we already hold.
     async registerWebhooks(url) {
+      const refused: { topic: string; reason: string }[] = []
       for (const topic of [
         'PRODUCTS_CREATE',
         'PRODUCTS_UPDATE',
@@ -549,9 +550,11 @@ export function shopifyConnector(
           { topic, sub: { callbackUrl: url, format: 'JSON' } },
         )
         const err = res.webhookSubscriptionCreate.userErrors[0]
-        if (err && !/already been taken/i.test(err.message))
-          throw new StoreError(`shopify: ${err.message}`)
+        if (err && !/already been taken/i.test(err.message)) {
+          refused.push({ topic: topic.toLowerCase().replace('_', '/'), reason: err.message })
+        }
       }
+      return refused
     },
 
     async parseWebhook({ headers, raw }) {

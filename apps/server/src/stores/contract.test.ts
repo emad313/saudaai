@@ -351,7 +351,17 @@ describe('shopify specifics', () => {
 
   it('subscribes to the webhooks it understands', async () => {
     const { shopify, connector } = await connect()
-    await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')
+    const refused = await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')
+    expect(refused).toEqual([
+      {
+        topic: 'orders/create',
+        reason: 'You cannot create a webhook subscription with the specified topic',
+      },
+      {
+        topic: 'orders/updated',
+        reason: 'You cannot create a webhook subscription with the specified topic',
+      },
+    ])
     const subs = shopify.ops.filter((o) => o.op === 'webhookSubscriptionCreate')
     expect(subs.map((o) => o.variables.topic)).toContain('INVENTORY_LEVELS_UPDATE')
     expect(subs[0]!.variables.sub).toEqual({
@@ -461,7 +471,9 @@ describe('woocommerce specifics', () => {
 
   it('creates its webhooks with our secret', async () => {
     const { woo, connector } = await connect()
-    await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')
+    expect(await connector.registerWebhooks!('https://saudaai.example/webhooks/store/s1')).toEqual(
+      [],
+    )
     const made = woo.calls.filter((c) => c.method === 'POST' && c.path === '/webhooks')
     expect(made).toHaveLength(5)
     expect(made[0]!.body).toMatchObject({ secret: 'wc_secret', status: 'active' })
