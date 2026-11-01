@@ -1,4 +1,4 @@
-import { formatTaka, sumPoisha } from '@saudaai/shared'
+import { formatMoney, sumPoisha } from '@saudaai/shared'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
 import { expenses, orderLines, orders, products, variants } from '../db/schema.ts'
 import { catalogScope } from '../stores/index.ts'
@@ -49,9 +49,9 @@ export async function salesReport(ctx: Ctx, args: { from?: string; to?: string }
     from: dhakaDate(start),
     to: dhakaDate(end - 1),
     orders: rows.length,
-    revenue: formatTaka(revenue),
-    collected: formatTaka(sumPoisha(rows.map((o) => o.paidPoisha))),
-    expenses: formatTaka(expense),
+    revenue: formatMoney(revenue, ctx.shop.currency),
+    collected: formatMoney(sumPoisha(rows.map((o) => o.paidPoisha)), ctx.shop.currency),
+    expenses: formatMoney(expense, ctx.shop.currency),
     topProducts: top.map((t) => ({ name: t.name, qty: Number(t.qty) })),
     revenuePoisha: revenue,
   }
@@ -120,7 +120,11 @@ export async function duesSummary(ctx: Ctx) {
       ),
     )
   const due = Number(rows[0]?.due ?? 0)
-  return { orders: Number(rows[0]?.n ?? 0), due: formatTaka(due), duePoisha: due }
+  return {
+    orders: Number(rows[0]?.n ?? 0),
+    due: formatMoney(due, ctx.shop.currency),
+    duePoisha: due,
+  }
 }
 
 export async function dailySummary(ctx: Ctx) {

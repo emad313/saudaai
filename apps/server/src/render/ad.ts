@@ -1,5 +1,5 @@
 import { productImage } from '../catalog/image.ts'
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import type { AdFormat } from '../agent/deps.ts'
 import type { Db } from '../db/client.ts'
 import { log } from '../log.ts'
@@ -156,8 +156,8 @@ export async function renderAds(
     shop,
     name: p.name,
     headline: headlineFor(input.occasion),
-    price: formatTaka(sale ?? p.basePricePoisha),
-    was: sale ? formatTaka(p.basePricePoisha) : null,
+    price: formatMoney(sale ?? p.basePricePoisha, shop.currency),
+    was: sale ? formatMoney(p.basePricePoisha, shop.currency) : null,
     offer: input.offerText,
     product: `data:${file.row.mime};base64,${file.bytes.toString('base64')}`,
     cutout: Boolean(cut),

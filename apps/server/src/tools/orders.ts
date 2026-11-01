@@ -1,4 +1,4 @@
-import { formatTaka, sumPoisha } from '@saudaai/shared'
+import { formatMoney, sumPoisha } from '@saudaai/shared'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { write, type Tx } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
@@ -231,14 +231,14 @@ export async function getOrder(ctx: Ctx, ref: { orderId?: string; number?: numbe
       size: v.size,
       color: v.color,
       qty: l.qty,
-      unitPrice: formatTaka(l.unitPricePoisha),
-      lineTotal: formatTaka(l.lineTotalPoisha),
+      unitPrice: formatMoney(l.unitPricePoisha, ctx.shop.currency),
+      lineTotal: formatMoney(l.lineTotalPoisha, ctx.shop.currency),
     })),
-    subtotal: formatTaka(o.subtotalPoisha),
-    delivery: formatTaka(o.deliveryPoisha),
-    total: formatTaka(o.totalPoisha),
-    paid: formatTaka(o.paidPoisha),
-    due: formatTaka(due),
+    subtotal: formatMoney(o.subtotalPoisha, ctx.shop.currency),
+    delivery: formatMoney(o.deliveryPoisha, ctx.shop.currency),
+    total: formatMoney(o.totalPoisha, ctx.shop.currency),
+    paid: formatMoney(o.paidPoisha, ctx.shop.currency),
+    due: formatMoney(due, ctx.shop.currency),
     totalPoisha: o.totalPoisha,
     duePoisha: due,
     externalNumber: o.externalNumber,
@@ -285,7 +285,7 @@ async function pushToStore(ctx: Ctx, store: Store, o: Order) {
       { orderId: o.id, ours: o.totalPoisha, store: made.totalPoisha },
       'store total differs from ours',
     )
-    return `store total ${formatTaka(made.totalPoisha)} differs from ours ${formatTaka(o.totalPoisha)}, check order ${made.number} in the store`
+    return `store total ${formatMoney(made.totalPoisha, ctx.shop.currency)} differs from ours ${formatMoney(o.totalPoisha, ctx.shop.currency)}, check order ${made.number} in the store`
   }
   return null
 }
@@ -352,7 +352,10 @@ export async function recordPayment(
   const due = o.totalPoisha - o.paidPoisha
   if (args.amountPoisha <= 0) throw new ToolError('bad_amount', 'payment must be positive')
   if (args.amountPoisha > due) {
-    throw new ToolError('overpaid', `order #${o.number} only has ${formatTaka(due)} due`)
+    throw new ToolError(
+      'overpaid',
+      `order #${o.number} only has ${formatMoney(due, ctx.shop.currency)} due`,
+    )
   }
   const paid = o.paidPoisha + args.amountPoisha
   if (o.externalId) {
@@ -361,7 +364,7 @@ export async function recordPayment(
       await storeCall(() =>
         store.connector!.updateOrder(o.externalId!, {
           paidPoisha: paid,
-          note: `SaudaAI: ${formatTaka(args.amountPoisha)} received by ${args.method}`,
+          note: `SaudaAI: ${formatMoney(args.amountPoisha, ctx.shop.currency)} received by ${args.method}`,
         }),
       )
     }
@@ -411,7 +414,7 @@ export async function listOrders(
     status: o.status,
     paymentStatus: o.paymentStatus,
     paymentMethod: o.paymentMethod,
-    total: formatTaka(o.totalPoisha),
+    total: formatMoney(o.totalPoisha, ctx.shop.currency),
     totalPoisha: o.totalPoisha,
     duePoisha: o.totalPoisha - o.paidPoisha,
     createdAt: o.createdAt,

@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { send } from '../api.ts'
 import StoreConnect from '../components/StoreConnect.vue'
+import { currencies } from '@saudaai/shared'
+import { currencySymbol } from '../format.ts'
 import { useSession } from '../stores/session.ts'
 
 const session = useSession()
@@ -9,6 +11,7 @@ const saved = ref(false)
 const error = ref('')
 const form = ref({
   name: '',
+  ownerName: '',
   area: '',
   bkashNumber: '',
   paymentMethods: [] as string[],
@@ -19,6 +22,7 @@ const form = ref({
   autoSendConfirmation: false,
   autoSendReminders: false,
   feedMuted: false,
+  currency: 'BDT',
 })
 
 function fill() {
@@ -26,6 +30,7 @@ function fill() {
   if (!me) return
   form.value = {
     name: me.name,
+    ownerName: me.ownerName,
     area: me.area,
     bkashNumber: me.bkashNumber ?? '',
     paymentMethods: [...me.paymentMethods],
@@ -36,6 +41,7 @@ function fill() {
     autoSendConfirmation: Boolean(me.auto.send_order_confirmation),
     autoSendReminders: Boolean(me.auto.send_payment_reminder),
     feedMuted: me.feedMuted,
+    currency: me.currency,
   }
 }
 
@@ -46,6 +52,7 @@ async function save() {
   try {
     await send('/api/shop', 'PATCH', {
       name: f.name,
+      ownerName: f.ownerName,
       area: f.area,
       bkashNumber: f.bkashNumber || null,
       paymentMethods: f.paymentMethods,
@@ -55,6 +62,7 @@ async function save() {
       autoSendConfirmation: f.autoSendConfirmation,
       autoSendReminders: f.autoSendReminders,
       feedMuted: f.feedMuted,
+      ...(session.me?.storeConnected ? {} : { currency: f.currency }),
     })
     await session.load()
     saved.value = true
@@ -96,9 +104,27 @@ const switches = [
                 >Shop name<input v-model="form.name" class="field mt-1.5 font-normal"
               /></label>
               <label class="block text-sm font-medium"
+                >Owner name<input v-model="form.ownerName" class="field mt-1.5 font-normal"
+              /></label>
+              <label class="block text-sm font-medium"
                 >Area<input v-model="form.area" class="field mt-1.5 font-normal"
               /></label>
             </div>
+            <label class="block text-sm font-medium"
+              >Currency
+              <select
+                v-model="form.currency"
+                class="field mt-1.5 font-normal"
+                :disabled="session.me?.storeConnected"
+              >
+                <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <span
+                v-if="session.me?.storeConnected"
+                class="mt-1 block text-xs font-normal text-muted"
+                >Comes from your connected store.</span
+              ></label
+            >
             <label class="block text-sm font-medium"
               >bKash / Nagad number<input
                 v-model="form.bkashNumber"
@@ -123,14 +149,14 @@ const switches = [
             </fieldset>
             <div class="grid grid-cols-2 gap-4">
               <label class="block text-sm font-medium"
-                >Delivery inside Dhaka (৳)<input
+                >Delivery inside Dhaka ({{ currencySymbol() }})<input
                   v-model.number="form.insideDhakaTaka"
                   type="number"
                   min="0"
                   class="field mt-1.5 font-normal"
               /></label>
               <label class="block text-sm font-medium"
-                >Outside Dhaka (৳)<input
+                >Outside Dhaka ({{ currencySymbol() }})<input
                   v-model.number="form.outsideDhakaTaka"
                   type="number"
                   min="0"
@@ -156,7 +182,8 @@ const switches = [
                 <label
                   v-if="s.key === 'autoConfirm' && form.autoConfirm"
                   class="mt-3 flex items-center gap-2 text-sm text-muted"
-                  >Up to ৳<input
+                  >Up to {{ currencySymbol()
+                  }}<input
                     v-model.number="form.autoConfirmUpToTaka"
                     type="number"
                     min="1"
@@ -179,6 +206,32 @@ const switches = [
     </div>
 
     <aside class="flex flex-col gap-4 lg:order-2">
+      <section v-if="session.me?.ai" class="panel">
+        <h2 class="card-head">
+          AI models
+          <span class="text-xs font-normal text-muted">{{ session.me.ai.provider }}</span>
+        </h2>
+        <div v-for="m in session.me.ai.models" :key="m.job" class="row py-2.5">
+          <span class="text-sm text-muted">{{ m.job }}</span>
+          <code class="rounded bg-sky px-1.5 py-0.5 text-xs text-ink">{{
+            m.model ?? 'not set'
+          }}</code>
+        </div>
+        <div class="px-5 py-3 text-sm text-muted">
+          Model calls today:
+          <b class="text-night">{{ session.me.ai.callsToday }}</b> of
+          {{ session.me.ai.dailyLimit }}
+          <div class="mt-2 h-1.5 rounded-full bg-cloud">
+            <div
+              class="h-full rounded-full bg-ink"
+              :style="{
+                width: `${Math.min(100, (session.me.ai.callsToday / session.me.ai.dailyLimit) * 100)}%`,
+              }"
+            ></div>
+          </div>
+          <p class="mt-2 text-xs">Models and the daily limit are set in the server's .env.</p>
+        </div>
+      </section>
       <section class="panel">
         <h2 class="card-head">Telegram</h2>
         <div class="px-5 pb-5">

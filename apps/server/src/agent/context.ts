@@ -1,5 +1,5 @@
 import { hasImage } from '../catalog/image.ts'
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { conversations, messages, products } from '../db/schema.ts'
 import type { ChatMessage } from '../models/chat.ts'
@@ -35,7 +35,7 @@ export async function catalogBlock(ctx: Ctx) {
       .join(' ')
     const draft = p.status === 'draft' ? ' (draft)' : ''
     const photo = hasImage(p) ? ' [photo]' : ''
-    return `${p.id} | ${p.name}${draft}${photo} | ${formatTaka(p.basePricePoisha)} | ${vs}`
+    return `${p.id} | ${p.name}${draft}${photo} | ${formatMoney(p.basePricePoisha, ctx.shop.currency)} | ${vs}`
   })
   return `Catalog (productId | name | price | variantId:size/color=available):\n${lines.join('\n') || '(empty)'}`
 }

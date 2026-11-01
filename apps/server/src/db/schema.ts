@@ -32,6 +32,7 @@ export const shops = sqliteTable('shops', {
   linkCode: text('link_code').notNull(),
   orderSeq: integer('order_seq').notNull().default(1000),
   publicKey: text('public_key').unique(),
+  currency: text('currency').notNull().default('BDT'),
   createdAt: createdAt(),
 })
 

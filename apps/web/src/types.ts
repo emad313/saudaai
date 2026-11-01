@@ -16,6 +16,14 @@ export type Me = {
   telegramLinked: boolean
   linkCode: string | null
   readonly: boolean
+  currency: string
+  storeConnected: boolean
+  ai: {
+    provider: string
+    models: { job: string; model: string | null }[]
+    callsToday: number
+    dailyLimit: number
+  }
   widgetSnippet: string
 }
 

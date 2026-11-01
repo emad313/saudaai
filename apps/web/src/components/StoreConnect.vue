@@ -62,6 +62,8 @@ async function run(label: string, fn: () => Promise<StoreView | unknown>) {
     const res = await fn()
     if (res && typeof res === 'object' && 'kind' in res) store.value = res as StoreView
     else await load()
+    // the store sets the shop's name and currency
+    await session.load()
     editing.value = false
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)

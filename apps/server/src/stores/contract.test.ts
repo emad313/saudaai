@@ -6,7 +6,11 @@ import { fakeWoo, wooUrl } from '../test/woocommerce.ts'
 import { demoProducts, fakeStore, storeUrl } from '../test/store.ts'
 import { testShop } from '../test/shop.ts'
 import { connectStore } from './index.ts'
+import { eq } from 'drizzle-orm'
+import { shops } from '../db/schema.ts'
+import { findProducts } from '../tools/products.ts'
 import { externalProduct, storeOrder } from './schema.ts'
+import { pullStore } from './sync.ts'
 import type { StoreConnector } from './types.ts'
 
 type Setup = {
@@ -237,9 +241,29 @@ describe('shopify specifics', () => {
     expect(shopify.ops.filter((o) => o.op === 'shop {').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('refuses a non BDT store', async () => {
+  it('takes the store currency for the shop and shows prices in it', async () => {
     const t = await testShop()
     vi.stubGlobal('fetch', fakeShopify({ currency: 'USD' }).fetch)
+    const { row, connector } = await connectStore(
+      t.db,
+      t.shop,
+      {
+        kind: 'shopify',
+        baseUrl: `https://${shopifyDomain}`,
+        credentials: { accessToken: 'shpat_test_token' },
+      },
+      Date.now(),
+    )
+    await pullStore(t.db, row, connector!, Date.now())
+    const [shop] = await t.db.select().from(shops).where(eq(shops.id, t.shop.id))
+    expect(shop!.currency).toBe('USD')
+    const found = await findProducts({ ...t.ctx(), shop: shop! }, { query: 'kurti' })
+    expect(found.matches[0]!.price).toBe('$1,500')
+  })
+
+  it('refuses a currency it cannot keep in two decimals', async () => {
+    const t = await testShop()
+    vi.stubGlobal('fetch', fakeShopify({ currency: 'JPY' }).fetch)
     await expect(
       connectStore(
         t.db,
@@ -251,7 +275,7 @@ describe('shopify specifics', () => {
         },
         Date.now(),
       ),
-    ).rejects.toThrow('only BDT')
+    ).rejects.toThrow('JPY is not supported')
   })
 
   it('creates the order as a draft completed with payment pending', async () => {

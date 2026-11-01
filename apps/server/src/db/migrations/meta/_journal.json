@@ -22,6 +22,13 @@
       "when": 1793446287397,
       "tag": "0002_stores",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793475940136,
+      "tag": "0003_shop_currency",
+      "breakpoints": true
     }
   ]
 }

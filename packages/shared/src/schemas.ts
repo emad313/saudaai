@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { currencies } from './money.ts'
 
 const taka = z.number().int().min(0).max(10_000_000)
 
@@ -33,6 +34,7 @@ export const sellerMessage = z.object({ text: z.string().min(1).max(2000) })
 
 export const shopPatch = z.object({
   name: z.string().min(2).optional(),
+  ownerName: z.string().min(1).max(60).optional(),
   area: z.string().min(2).optional(),
   bkashNumber: z.string().nullable().optional(),
   paymentMethods: z
@@ -45,6 +47,7 @@ export const shopPatch = z.object({
   autoSendConfirmation: z.boolean().optional(),
   autoSendReminders: z.boolean().optional(),
   feedMuted: z.boolean().optional(),
+  currency: z.enum(currencies).optional(),
 })
 
 export const chatMessage = z.object({ text: z.string().min(1).max(1000) })

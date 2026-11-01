@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatTaka, parseTaka, sumPoisha } from './money.ts'
+import { formatMoney, parseTaka, sumPoisha } from './money.ts'
 
 describe('parseTaka', () => {
   it.each([
@@ -18,17 +18,23 @@ describe('parseTaka', () => {
   })
 })
 
-describe('formatTaka', () => {
+describe('formatMoney', () => {
   it('groups thousands the way Bangladesh writes them', () => {
-    expect(formatTaka(12345600)).toBe('৳1,23,456')
+    expect(formatMoney(12345600)).toBe('৳1,23,456')
+  })
+
+  it('formats other currencies with their own symbol', () => {
+    expect(formatMoney(150000, 'USD')).toBe('$1,500')
+    expect(formatMoney(149950, 'USD')).toBe('$1,499.50')
+    expect(formatMoney(150000, 'EUR')).toBe('€1,500')
   })
 
   it('keeps poisha when present', () => {
-    expect(formatTaka(9905)).toBe('৳99.05')
+    expect(formatMoney(9905)).toBe('৳99.05')
   })
 
   it('refuses floats', () => {
-    expect(() => formatTaka(10.5)).toThrow()
+    expect(() => formatMoney(10.5)).toThrow()
   })
 })
 

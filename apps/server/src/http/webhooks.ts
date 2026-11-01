@@ -1,4 +1,4 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import { eq } from 'drizzle-orm'
 import { webhookCallback } from 'grammy'
 import { Hono } from 'hono'
@@ -114,7 +114,7 @@ export function webhookRoutes(services: Pick<Services, 'db' | 'deps' | 'inbox' |
         for (const o of imported) {
           await services.deps.seller.notify(
             shop!,
-            `New website order ${o.externalNumber} (#${o.number}), ${formatTaka(o.totalPoisha)}`,
+            `New website order ${o.externalNumber} (#${o.number}), ${formatMoney(o.totalPoisha, shop!.currency)}`,
           )
         }
       }

@@ -269,12 +269,6 @@ export function shopifyConnector(
         const data = await gql<{ shop: { name: string; currencyCode: string } }>(
           `{ shop { name currencyCode } }`,
         )
-        if (data.shop.currencyCode !== 'BDT') {
-          return {
-            ok: false,
-            error: `store currency is ${data.shop.currencyCode}; only BDT is supported yet`,
-          }
-        }
         return { ok: true, name: data.shop.name, currency: data.shop.currencyCode }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -321,7 +315,10 @@ export function shopifyConnector(
             })),
             shippingLine: {
               title: 'Delivery',
-              priceWithCurrency: { amount: decimal(input.shippingPoisha), currencyCode: 'BDT' },
+              priceWithCurrency: {
+                amount: decimal(input.shippingPoisha),
+                currencyCode: row.currency,
+              },
             },
             shippingAddress: {
               firstName: first,

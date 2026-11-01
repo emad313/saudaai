@@ -1,4 +1,4 @@
-import { formatTaka, sumPoisha } from '@saudaai/shared'
+import { formatMoney, sumPoisha } from '@saudaai/shared'
 import { and, eq, gte, inArray, lt, ne } from 'drizzle-orm'
 import {
   activityLog,
@@ -336,13 +336,16 @@ export async function analyticsForAgent(
   const all = await analytics(ctx, args)
   const sales = {
     orders: all.sales.orders,
-    revenue: formatTaka(all.sales.revenuePoisha),
-    averageOrder: formatTaka(all.sales.averageOrderPoisha),
-    byChannel: all.sales.byChannel.map((c) => ({ ...c, revenue: formatTaka(c.revenuePoisha) })),
+    revenue: formatMoney(all.sales.revenuePoisha, ctx.shop.currency),
+    averageOrder: formatMoney(all.sales.averageOrderPoisha, ctx.shop.currency),
+    byChannel: all.sales.byChannel.map((c) => ({
+      ...c,
+      revenue: formatMoney(c.revenuePoisha, ctx.shop.currency),
+    })),
     topProducts: all.sales.topProducts.map((p) => ({
       name: p.name,
       qty: p.qty,
-      revenue: formatTaka(p.revenuePoisha),
+      revenue: formatMoney(p.revenuePoisha, ctx.shop.currency),
     })),
   }
   const parts = { sales, agent: all.agent, demand: all.demand, cost: all.cost }

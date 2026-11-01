@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { currencies, isCurrency } from '@saudaai/shared'
 import { eq, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
@@ -66,7 +67,7 @@ export async function connectStore(
     baseUrl: input.baseUrl?.replace(/\/$/, '') ?? null,
     credentials: input.kind === 'builtin' ? null : seal(input.credentials, env.STORE_SECRET_KEY),
     webhookSecret: webhookSecret ? seal(webhookSecret, env.STORE_SECRET_KEY) : null,
-    currency: 'BDT',
+    currency: existing?.currency ?? 'BDT',
     status: 'connected',
     lastSyncAt: existing?.kind === input.kind ? (existing.lastSyncAt ?? null) : null,
     lastError: null,
@@ -76,10 +77,19 @@ export async function connectStore(
   if (connector) {
     const res = await connector.test()
     if (!res.ok) throw new StoreError(res.error, 400)
+    if (!isCurrency(res.currency)) {
+      throw new StoreError(
+        `store currency ${res.currency} is not supported yet (supported: ${currencies.join(', ')})`,
+        400,
+      )
+    }
     row.name = res.name
     row.currency = res.currency
-    // The store is the shop's identity too.
-    await db.update(shops).set({ name: res.name }).where(eq(shops.id, shop.id))
+    // The store is the shop's identity too: its name and the currency prices are kept in.
+    await db
+      .update(shops)
+      .set({ name: res.name, currency: res.currency })
+      .where(eq(shops.id, shop.id))
   }
   await db
     .insert(stores)

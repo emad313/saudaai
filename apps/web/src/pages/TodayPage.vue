@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { formatTaka } from '@saudaai/shared'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import ApprovalSlip from '../components/ApprovalSlip.vue'
 import LineChart from '../components/LineChart.vue'
 import StatusText from '../components/StatusText.vue'
-import { bnDate, methodName, when } from '../format.ts'
+import { bnDate, compactMoney, methodName, money, when } from '../format.ts'
 import type { OrderRow, Pending, Summary } from '../types.ts'
 
 type Dashboard = {
@@ -35,10 +34,7 @@ const weekday = (date: string) =>
     weekday: 'short',
     timeZone: 'Asia/Dhaka',
   })
-const axis = (poisha: number) => {
-  const t = poisha / 100
-  return t >= 1000 ? `৳${+(t / 1000).toFixed(1)}k` : `৳${t}`
-}
+const axis = compactMoney
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 const collectedShare = computed(() => {
@@ -55,7 +51,7 @@ const points = computed(() =>
   week.value.map((d) => ({
     label: weekday(d.date),
     value: d.revenuePoisha,
-    title: `${formatTaka(d.revenuePoisha)}, ${plural(d.orders, 'order')}`,
+    title: `${money(d.revenuePoisha)}, ${plural(d.orders, 'order')}`,
   })),
 )
 
@@ -110,7 +106,7 @@ onBeforeUnmount(() => clearInterval(timer))
       <section class="flex flex-col rounded-xl bg-ink p-5 text-white shadow-card">
         <p class="font-medium">Last 7 days</p>
         <p class="mt-2 flex items-center gap-2">
-          <span class="text-2xl font-semibold">{{ formatTaka(weekTotal) }}</span>
+          <span class="text-2xl font-semibold">{{ money(weekTotal) }}</span>
           <span class="badge bg-white/20">{{ plural(weekOrders, 'order') }}</span>
         </p>
         <div class="mt-auto flex h-12 items-end gap-1.5 pt-4" aria-hidden="true">
@@ -128,7 +124,7 @@ onBeforeUnmount(() => clearInterval(timer))
       <section class="panel">
         <h2 class="card-head">
           Sales, last 7 days
-          <span class="text-ink">{{ formatTaka(weekTotal) }}</span>
+          <span class="text-ink">{{ money(weekTotal) }}</span>
         </h2>
         <div class="px-3 pt-4 pb-2 md:px-5">
           <LineChart :points="points" :axis="axis" />

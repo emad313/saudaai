@@ -1,0 +1,1 @@
+ALTER TABLE `shops` ADD `currency` text DEFAULT 'BDT' NOT NULL;

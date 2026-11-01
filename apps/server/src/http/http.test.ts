@@ -214,6 +214,25 @@ describe('meta webhook', () => {
   })
 })
 
+describe('settings', () => {
+  it('shows the currency and which models do what, and lets a shop with no store pick a currency', async () => {
+    const cookie = await signIn()
+    const me = await (await app.request('/api/me', { headers: { cookie } })).json()
+    expect(me).toMatchObject({ currency: 'BDT', storeConnected: false })
+    expect(me.ai.models.map((m: { job: string }) => m.job)).toContain('Voice notes')
+    expect(JSON.stringify(me.ai)).not.toMatch(/key/i)
+    const res = await app.request('/api/shop', {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ currency: 'USD' }),
+    })
+    expect(res.status).toBe(200)
+    expect((await (await app.request('/api/me', { headers: { cookie } })).json()).currency).toBe(
+      'USD',
+    )
+  })
+})
+
 describe('store api', () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -252,6 +271,13 @@ describe('store api', () => {
     const signed = createHmac('sha256', view.webhookSecret).update(raw).digest('hex')
     expect((await hook(`sha256=${signed}`)).status).toBe(200)
     expect((await findProducts(t.ctx(), { query: 'kurti' })).matches).toEqual([])
+
+    const locked = await app.request('/api/shop', {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ currency: 'EUR' }),
+    })
+    expect(locked.status).toBe(400)
 
     const back = await app.request('/api/store', { method: 'DELETE', headers: { cookie } })
     expect(await back.json()).toMatchObject({ kind: 'builtin' })

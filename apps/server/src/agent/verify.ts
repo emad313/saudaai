@@ -42,8 +42,12 @@ function latin(text: string) {
 
 function priceNumbers(text: string): string[] {
   const t = latin(text)
-  const before = [...t.matchAll(/(?:৳|tk\.?|taka|টাকা)\s*(\d[\d,]*)/gi)].map((m) => m[1]!)
-  const after = [...t.matchAll(/(\d[\d,]*)\s*(?:৳|tk\b|taka|টাকা|\/-)/gi)].map((m) => m[1]!)
+  const before = [
+    ...t.matchAll(/(?:৳|\$|€|£|₹|tk\.?|taka|টাকা|rs\.?|usd|eur|inr)\s*(\d[\d,]*)/gi),
+  ].map((m) => m[1]!)
+  const after = [
+    ...t.matchAll(/(\d[\d,]*)\s*(?:৳|tk\b|taka|টাকা|\/-|usd\b|dollars?\b|rs\b|rupees?\b)/gi),
+  ].map((m) => m[1]!)
   return [...before, ...after].map((n) => n.replace(/,/g, ''))
 }
 

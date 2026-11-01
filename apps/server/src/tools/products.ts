@@ -1,4 +1,4 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { write } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
@@ -17,25 +17,25 @@ type Variant = typeof variants.$inferSelect
 export const available = (v: Pick<Variant, 'stock' | 'reserved'>) =>
   v.stock === null ? null : v.stock - v.reserved
 
-function variantView(v: Variant) {
+function variantView(v: Variant, currency: string) {
   return {
     variantId: v.id,
     size: v.size,
     color: v.color,
-    price: formatTaka(v.pricePoisha),
+    price: formatMoney(v.pricePoisha, currency),
     available: available(v),
   }
 }
 
-function productView(p: Product, vs: Variant[]) {
+function productView(p: Product, vs: Variant[], currency: string) {
   return {
     productId: p.id,
     name: p.name,
     category: p.category,
     status: p.status,
-    price: formatTaka(p.basePricePoisha),
+    price: formatMoney(p.basePricePoisha, currency),
     hasPhoto: hasImage(p),
-    variants: vs.map(variantView),
+    variants: vs.map((v) => variantView(v, currency)),
   }
 }
 
@@ -104,7 +104,7 @@ export async function findProducts(ctx: Ctx, args: { query: string; limit?: numb
     .slice(0, args.limit ?? 5)
   return {
     matches: matches.map((m) => ({
-      ...productView(m.p, m.vs),
+      ...productView(m.p, m.vs, ctx.shop.currency),
       score: Math.round(m.s * 100) / 100,
     })),
   }
@@ -124,7 +124,7 @@ export async function requireProduct(ctx: Ctx, productId: string) {
 export async function getProduct(ctx: Ctx, args: { productId: string }) {
   const p = await requireProduct(ctx, args.productId)
   const vs = (await loadVariants(ctx, [p.id])).get(p.id) ?? []
-  return { ...productView(p, vs), attributes: p.attributes }
+  return { ...productView(p, vs, ctx.shop.currency), attributes: p.attributes }
 }
 
 export type VariantInput = { size?: string; color?: string; stock: number; pricePoisha?: number }
@@ -271,7 +271,12 @@ export async function adjustStock(
     )
     await ctx.db.update(variants).set({ stock }).where(eq(variants.id, before.id))
     const { v } = await requireVariant(ctx, args.variantId)
-    return { product: p.name, ...variantView(v), stock: v.stock, reason: args.reason }
+    return {
+      product: p.name,
+      ...variantView(v, ctx.shop.currency),
+      stock: v.stock,
+      reason: args.reason,
+    }
   }
   if (before.stock === null) {
     throw new ToolError('untracked', `the store does not track stock for ${p.name}`)
@@ -293,5 +298,10 @@ export async function adjustStock(
     )
   }
   const { v } = await requireVariant(ctx, args.variantId)
-  return { product: p.name, ...variantView(v), stock: v.stock, reason: args.reason }
+  return {
+    product: p.name,
+    ...variantView(v, ctx.shop.currency),
+    stock: v.stock,
+    reason: args.reason,
+  }
 }

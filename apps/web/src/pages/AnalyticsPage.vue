@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { formatTaka } from '@saudaai/shared'
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '../api.ts'
 import LineChart from '../components/LineChart.vue'
-import { channelName } from '../format.ts'
+import { channelName, compactMoney, money } from '../format.ts'
 
 type Counted = { key: string; n: number }
 type Analytics = {
@@ -83,10 +82,7 @@ const weekday = (date: string) =>
     day: 'numeric',
     timeZone: 'Asia/Dhaka',
   })
-const axis = (poisha: number) => {
-  const t = poisha / 100
-  return t >= 1000 ? `৳${+(t / 1000).toFixed(1)}k` : `৳${t}`
-}
+const axis = compactMoney
 const seconds = (ms: number | null) =>
   ms === null ? '—' : ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—')
@@ -97,7 +93,7 @@ const points = computed(
     data.value?.sales.days.map((d) => ({
       label: weekday(d.date),
       value: d.revenuePoisha,
-      title: `${formatTaka(d.revenuePoisha)}, ${d.orders} ${d.orders === 1 ? 'order' : 'orders'}`,
+      title: `${money(d.revenuePoisha)}, ${d.orders} ${d.orders === 1 ? 'order' : 'orders'}`,
     })) ?? [],
 )
 const channelMax = computed(() =>
@@ -136,13 +132,13 @@ const chats = computed(() => {
       <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <section class="panel p-5">
           <p class="text-muted">Revenue</p>
-          <p class="mt-1 text-2xl font-semibold">{{ formatTaka(data.sales.revenuePoisha) }}</p>
+          <p class="mt-1 text-2xl font-semibold">{{ money(data.sales.revenuePoisha) }}</p>
           <p class="mt-1 text-xs text-muted">{{ data.sales.orders }} confirmed orders</p>
         </section>
         <section class="panel p-5">
           <p class="text-muted">Average order</p>
           <p class="mt-1 text-2xl font-semibold">
-            {{ formatTaka(data.sales.averageOrderPoisha) }}
+            {{ money(data.sales.averageOrderPoisha) }}
           </p>
           <p class="mt-1 text-xs text-muted">Items only, delivery not counted</p>
         </section>
@@ -171,7 +167,7 @@ const chats = computed(() => {
           <div class="px-3 pt-4 pb-2 md:px-5">
             <LineChart v-if="points.length > 1" :points="points" :axis="axis" />
             <p v-else class="py-10 text-center text-muted">
-              {{ formatTaka(data.sales.revenuePoisha) }} today
+              {{ money(data.sales.revenuePoisha) }} today
             </p>
           </div>
         </section>
@@ -181,7 +177,7 @@ const chats = computed(() => {
             <div v-for="c in data.sales.byChannel" :key="c.channel">
               <div class="flex justify-between text-sm">
                 <span>{{ channels[c.channel] ?? c.channel }}</span>
-                <span class="font-medium">{{ formatTaka(c.revenuePoisha) }}</span>
+                <span class="font-medium">{{ money(c.revenuePoisha) }}</span>
               </div>
               <div class="mt-1.5 h-2 rounded-full bg-cloud">
                 <div
@@ -203,7 +199,7 @@ const chats = computed(() => {
             <span class="min-w-0 truncate">{{ p.name }}</span>
             <span class="shrink-0 text-right text-sm"
               ><span class="font-medium">{{ p.qty }} sold</span
-              ><span class="block text-xs text-muted">{{ formatTaka(p.revenuePoisha) }}</span></span
+              ><span class="block text-xs text-muted">{{ money(p.revenuePoisha) }}</span></span
             >
           </div>
           <p v-if="!data.sales.topProducts.length" class="empty">Nothing sold yet.</p>

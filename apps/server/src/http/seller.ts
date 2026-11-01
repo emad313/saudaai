@@ -71,7 +71,32 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
 
   app.get('/me', async (c) => {
     const shop = c.get('shop')
+    const { row } = await storeFor(db, shop.id)
+    const [calls] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(modelCalls)
+      .where(
+        and(gte(modelCalls.createdAt, dhakaDayStart(deps.now())), eq(modelCalls.cacheHit, false)),
+      )
+    const agent = env.AGENT_PROVIDER === 'baseten' ? env.BASETEN_MODEL : env.META_AGENT_MODEL
     return c.json({
+      currency: shop.currency,
+      storeConnected: Boolean(row && row.kind !== 'builtin'),
+      ai: {
+        provider: env.AGENT_PROVIDER === 'baseten' ? 'Baseten' : 'Meta Model API',
+        models: [
+          { job: 'Agent (chat, orders, tools)', model: agent ?? null },
+          {
+            job: 'Product photos (vision)',
+            model: env.META_VISION_MODEL ?? env.META_AGENT_MODEL ?? null,
+          },
+          { job: 'Voice notes', model: env.META_TRANSCRIBE_MODEL ?? null },
+          { job: 'Product cutout', model: env.META_SAM_MODEL ?? null },
+          { job: 'Ad backgrounds', model: env.META_IMAGE_MODEL ?? null },
+        ],
+        callsToday: Number(calls?.n ?? 0),
+        dailyLimit: env.MODEL_DAILY_CALL_LIMIT,
+      },
       id: shop.id,
       slug: shop.slug,
       name: shop.name,
@@ -239,6 +264,12 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
   app.patch('/shop', async (c) => {
     const shop = c.get('shop')
     const p = await body(c, shopPatch)
+    if (p.currency && p.currency !== shop.currency) {
+      const { row } = await storeFor(db, shop.id)
+      if (row && row.kind !== 'builtin') {
+        throw new HTTPException(400, { message: 'the currency comes from your connected store' })
+      }
+    }
     const rules = shop.deliveryRules
     const auto = { ...shop.auto }
     if (p.autoConfirmUpToTaka !== undefined) {
@@ -251,6 +282,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       .update(shops)
       .set({
         name: p.name ?? shop.name,
+        ownerName: p.ownerName ?? shop.ownerName,
         area: p.area ?? shop.area,
         bkashNumber: p.bkashNumber === undefined ? shop.bkashNumber : p.bkashNumber,
         paymentMethods: p.paymentMethods ?? shop.paymentMethods,
@@ -263,6 +295,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
         },
         auto,
         feedMuted: p.feedMuted ?? shop.feedMuted,
+        currency: p.currency ?? shop.currency,
       })
       .where(eq(shops.id, shop.id))
     return c.json({ ok: true })

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { formatTaka } from '@saudaai/shared'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
-import { methodName, when } from '../format.ts'
+import { methodName, money, when } from '../format.ts'
 import type { OrderRow } from '../types.ts'
 
 const filters = [
@@ -81,7 +80,7 @@ onMounted(load)
         <span class="w-24 text-right">
           <span class="block font-semibold">{{ o.total }}</span>
           <span v-if="o.duePoisha && o.status !== 'cancelled'" class="block text-xs text-bad"
-            >{{ formatTaka(o.duePoisha) }} due</span
+            >{{ money(o.duePoisha) }} due</span
           >
         </span>
       </span>

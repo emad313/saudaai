@@ -1,4 +1,4 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { newId } from '../db/ids.ts'
@@ -211,7 +211,7 @@ export const tools: ToolDef[] = [
   tool({
     name: 'create_product_draft',
     description:
-      'Create a new product as a draft. Price in whole taka. Each variant is one size and/or color with its stock count.',
+      'Create a new product as a draft. Price in whole units of the shop currency (taka for BDT, dollars for USD). Each variant is one size and/or color with its stock count.',
     schema: z.object({
       name: z.string().min(2),
       category: z.string().min(2),
@@ -362,7 +362,7 @@ export const tools: ToolDef[] = [
     guard: () => true,
     preview: async (ctx, a) => {
       const o = await getOrder(ctx, { orderId: a.orderId })
-      return `Record ${formatTaka(a.amountTaka * 100)} via ${methodLabel(a.method)} for order #${o.number} (${o.customer.name}, due ${o.due})?`
+      return `Record ${formatMoney(a.amountTaka * 100, ctx.shop.currency)} via ${methodLabel(a.method)} for order #${o.number} (${o.customer.name}, due ${o.due})?`
     },
     run: (ctx, a) =>
       recordPayment(ctx, {
@@ -568,7 +568,7 @@ export const tools: ToolDef[] = [
       await sendToCustomer(ctx.deps, ctx.conversation, {
         kind: 'image',
         mediaId: image.id,
-        caption: `${p.name} - ${formatTaka(p.basePricePoisha)}`,
+        caption: `${p.name} - ${formatMoney(p.basePricePoisha, ctx.shop.currency)}`,
       })
       return { sent: true, product: p.name }
     },

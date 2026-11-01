@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { api, send } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
-import { methodName, when } from '../format.ts'
+import { methodName, money, when } from '../format.ts'
 import { useSession } from '../stores/session.ts'
 import type { OrderDetail } from '../types.ts'
 
@@ -119,7 +119,7 @@ onMounted(load)
           class="border-t border-line px-4 py-3 text-sm text-muted md:px-5"
         >
           <li v-for="p in payments" :key="p.id" class="py-0.5">
-            {{ when(p.createdAt) }}: ৳{{ (p.amountPoisha / 100).toLocaleString('en-IN') }} by
+            {{ when(p.createdAt) }}: {{ money(p.amountPoisha) }} by
             {{ methodName[p.method] ?? p.method }}
           </li>
         </ul>

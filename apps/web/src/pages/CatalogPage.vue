@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatTaka } from '@saudaai/shared'
+import { money } from '../format.ts'
 import { onMounted, ref } from 'vue'
 import { api, send } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
@@ -64,7 +64,7 @@ onMounted(load)
       <div class="flex flex-1 flex-col p-4">
         <div class="flex items-start justify-between gap-3">
           <h2 class="font-medium leading-snug">{{ p.name }}</h2>
-          <span class="shrink-0 font-semibold text-ink">{{ formatTaka(p.pricePoisha) }}</span>
+          <span class="shrink-0 font-semibold text-ink">{{ money(p.pricePoisha) }}</span>
         </div>
         <ul class="mt-3 flex flex-col gap-1">
           <li

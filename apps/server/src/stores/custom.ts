@@ -35,8 +35,6 @@ export function customConnector(row: StoreRow, creds: Credentials, secret: strin
     async test() {
       try {
         const shop = await json(await call('GET', '/info'), info)
-        if (shop.currency !== 'BDT')
-          return { ok: false, error: `currency ${shop.currency} is not supported yet, only BDT` }
         return { ok: true, ...shop }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }

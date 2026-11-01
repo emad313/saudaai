@@ -199,17 +199,15 @@ export function wooConnector(row: StoreRow, creds: Credentials, secret: string):
           'GET',
           '/settings/general/woocommerce_currency',
         )
-        if (currency.value !== 'BDT') {
-          return {
-            ok: false,
-            error: `store currency is ${currency.value}; only BDT is supported yet`,
-          }
-        }
         const site = await queued(row.id, () =>
           storeRequest(`${(row.baseUrl ?? '').replace(/\/$/, '')}/wp-json/`, {}),
         )
         const name = site.ok ? ((await site.json()) as { name?: string }).name : undefined
-        return { ok: true, name: name || new URL(row.baseUrl ?? base).host, currency: 'BDT' }
+        return {
+          ok: true,
+          name: name || new URL(row.baseUrl ?? base).host,
+          currency: currency.value,
+        }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
       }

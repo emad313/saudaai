@@ -1,3 +1,6 @@
+import { formatMoney } from '@saudaai/shared'
+import { useSession } from './stores/session.ts'
+
 const dhaka = 'Asia/Dhaka'
 
 export const time = (at: number) =>
@@ -32,4 +35,15 @@ export const methodName: Record<string, string> = {
   cod: 'Cash on delivery',
   bkash: 'bKash',
   nagad: 'Nagad',
+}
+
+// Money in the logged-in shop's currency (the connected store's).
+export const money = (minor: number) => formatMoney(minor, useSession().me?.currency ?? 'BDT')
+
+export const currencySymbol = () =>
+  formatMoney(0, useSession().me?.currency ?? 'BDT').replace(/[\d.,\s]/g, '')
+
+export const compactMoney = (minor: number) => {
+  const whole = minor / 100
+  return `${currencySymbol()}${whole >= 1000 ? `${+(whole / 1000).toFixed(1)}k` : whole}`
 }

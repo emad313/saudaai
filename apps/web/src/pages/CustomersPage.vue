@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatTaka } from '@saudaai/shared'
+import { money } from '../format.ts'
 import { onMounted, ref } from 'vue'
 import { api } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
@@ -66,7 +66,7 @@ onMounted(load)
           >{{ c.orders }} {{ c.orders === 1 ? 'order' : 'orders' }}</span
         >
         <span v-if="c.duePoisha" class="block font-medium text-bad"
-          >{{ formatTaka(c.duePoisha) }} due</span
+          >{{ money(c.duePoisha) }} due</span
         >
       </span>
     </RouterLink>

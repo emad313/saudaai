@@ -1,4 +1,4 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import { newId } from '../db/ids.ts'
 import { expenses } from '../db/schema.ts'
 import { ToolError, type Ctx } from './ctx.ts'
@@ -17,5 +17,9 @@ export async function recordExpense(
     createdAt: ctx.now,
   }
   await ctx.db.insert(expenses).values(row)
-  return { expenseId: row.id, amount: formatTaka(row.amountPoisha), category: row.category }
+  return {
+    expenseId: row.id,
+    amount: formatMoney(row.amountPoisha, ctx.shop.currency),
+    category: row.category,
+  }
 }

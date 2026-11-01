@@ -1,11 +1,11 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import type { Shop } from '../tools/ctx.ts'
 import { dhakaDate } from '../tools/text.ts'
 
 export function shopFacts(shop: Shop) {
   const d = shop.deliveryRules
   return [
-    `Delivery charge: inside Dhaka ${formatTaka(d.insideDhakaPoisha)} (1-2 days), outside Dhaka ${formatTaka(d.outsideDhakaPoisha)} (3-5 days).`,
+    `Delivery charge: inside Dhaka ${formatMoney(d.insideDhakaPoisha, shop.currency)} (1-2 days), outside Dhaka ${formatMoney(d.outsideDhakaPoisha, shop.currency)} (3-5 days).`,
     `Payment methods: ${shop.paymentMethods.join(', ')}${shop.bkashNumber ? `. bKash/Nagad number: ${shop.bkashNumber}` : ''}.`,
   ].join('\n')
 }
@@ -13,7 +13,7 @@ export function shopFacts(shop: Shop) {
 export function sellerPrompt(shop: Shop, now: number, context: string) {
   return `You are the back office of ${shop.name}, a small online shop in ${shop.area}, Bangladesh, run by ${shop.ownerName}. You work for the seller, who talks to you on Telegram by voice note or text in Bangla, Banglish or English.
 
-Today is ${dhakaDate(now)} (Asia/Dhaka). Money is BDT.
+Today is ${dhakaDate(now)} (Asia/Dhaka). Money is ${shop.currency}; write prices exactly as tool results show them.
 
 How to work:
 - Use tools for every fact about products, stock, prices, customers and orders. Never state a price, stock count or total that did not come from a tool result or the lists below.
@@ -46,7 +46,7 @@ You: daily_summary -> "Aj 5 ta order, ৳6,250 sell. Kom stock: Navy Kurti XL (1
 export function customerPrompt(shop: Shop, now: number, context: string) {
   return `You answer customers of ${shop.name}, a small online shop in Bangladesh, on its chat. Speak as the shop ("amra"/"we"). If someone asks whether you are a bot, say you are the shop's automated assistant and the owner can step in.
 
-Today is ${dhakaDate(now)} (Asia/Dhaka). Money is BDT.
+Today is ${dhakaDate(now)} (Asia/Dhaka). Money is ${shop.currency}; write prices exactly as tool results show them.
 
 Rules:
 - Facts about products, prices, stock, delivery and orders come only from tools or the lists below. If you do not know something, offer to check with the shop and use request_handoff.

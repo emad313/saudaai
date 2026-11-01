@@ -86,11 +86,11 @@ In the dashboard open **Settings, Your store**.
 - **WooCommerce**: WooCommerce, Settings, Advanced, REST API, add a Read/Write key. Paste the https site address, consumer key and secret.
 - **Your own site**: implement the SaudaAI Store API below and paste the site address and a token your site accepts. Send store events to the webhook URL shown in Settings, signed with the secret shown there.
 
-Only BDT stores are supported for now. On a public https address SaudaAI registers Shopify and WooCommerce webhooks itself; locally a full sync runs every 30 minutes and from **Sync now**.
+The shop uses the connected store's currency (BDT, USD, INR, PKR, EUR, GBP, AED, SAR, MYR, NGN, KES); prices are kept as integer minor units and shown in that currency. A shop without a website picks its currency in Settings. On a public https address SaudaAI registers Shopify and WooCommerce webhooks itself; locally a full sync runs every 30 minutes and from **Sync now**.
 
 ## SaudaAI Store API
 
-Any site can be a SaudaAI store by answering five routes. Requests carry `Authorization: Bearer <token>` and JSON. Money is integer poisha (৳1 = 100).
+Any site can be a SaudaAI store by answering five routes. Requests carry `Authorization: Bearer <token>` and JSON. Money is integer minor units of the store's currency (৳1 = 100 poisha, $1 = 100 cents).
 
 | Method | Path                             | Body / query                      | Response                                                            |
 | ------ | -------------------------------- | --------------------------------- | ------------------------------------------------------------------- |

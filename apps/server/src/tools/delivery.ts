@@ -1,4 +1,4 @@
-import { formatTaka } from '@saudaai/shared'
+import { formatMoney } from '@saudaai/shared'
 import type { Ctx, Shop } from './ctx.ts'
 import { normalize } from './text.ts'
 
@@ -15,8 +15,8 @@ export function deliveryFor(shop: Shop, area: string) {
 export function getDeliveryRules(ctx: Ctx) {
   const rules = ctx.shop.deliveryRules
   return {
-    insideDhaka: formatTaka(rules.insideDhakaPoisha),
-    outsideDhaka: formatTaka(rules.outsideDhakaPoisha),
+    insideDhaka: formatMoney(rules.insideDhakaPoisha, ctx.shop.currency),
+    outsideDhaka: formatMoney(rules.outsideDhakaPoisha, ctx.shop.currency),
     insideAreas: rules.insideAreas,
     paymentMethods: ctx.shop.paymentMethods,
     bkashNumber: ctx.shop.bkashNumber,
