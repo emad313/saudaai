@@ -91,7 +91,7 @@ describe('website widget', () => {
   it('issues a session and refuses messages without one', async () => {
     expect((await app.request('/api/w/not-a-key')).status).toBe(404)
     const info = await (await app.request(`/api/w/${key()}`)).json()
-    expect(info).toMatchObject({ name: "Nusrat's Closet" })
+    expect(info).toMatchObject({ name: "SaudaAI Demo Shop" })
     expect(info.session).toMatch(/^[a-z0-9]{24}$/)
     const res = await app.request(`/api/w/${key()}/messages`, {
       method: 'POST',
@@ -111,7 +111,7 @@ describe('website widget', () => {
       headers: { 'content-type': 'application/json', 'x-saudaai-session': sid },
       body: JSON.stringify({
         text: 'eta M size ache?',
-        pageUrl: 'https://nusrats-closet.example/p/maroon-kurti',
+        pageUrl: 'https://demo-shop.example/p/maroon-kurti',
         productId: matches[0]!.productId,
       }),
     })

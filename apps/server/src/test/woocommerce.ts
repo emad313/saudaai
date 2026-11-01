@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 const fixture = (name: string) =>
   JSON.parse(readFileSync(new URL(`./fixtures/woocommerce/${name}.json`, import.meta.url), 'utf8'))
 
-export const wooUrl = 'https://nusrat-shop.example'
+export const wooUrl = 'https://test-woo-shop.example'
 const auth = `Basic ${Buffer.from('ck_test:cs_test').toString('base64')}`
 
 // WooCommerce REST v3 from fixtures, paginated with X-WP-TotalPages like the real API.
@@ -18,7 +18,7 @@ export function fakeWoo(opts: { currency?: string } = {}) {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
     const path = url.pathname.replace('/wp-json/wc/v3', '')
     calls.push({ method, path, body })
-    if (url.pathname === '/wp-json/') return json({ name: "Nusrat's Shop" })
+    if (url.pathname === '/wp-json/') return json({ name: "Test Woo Shop" })
     if ((init?.headers as Record<string, string>).authorization !== auth) {
       return json(
         { code: 'woocommerce_rest_cannot_view', message: 'Sorry, you cannot list resources.' },

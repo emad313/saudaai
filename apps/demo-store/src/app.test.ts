@@ -44,7 +44,7 @@ describe('store api', () => {
   it('needs the bearer token', async () => {
     expect((await app.request('/saudaai/info')).status).toBe(401)
     expect(await (await get('/saudaai/info')).json()).toEqual({
-      name: "Nusrat's Closet",
+      name: "SaudaAI Demo Shop",
       currency: 'BDT',
     })
   })

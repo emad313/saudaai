@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 const fixture = (name: string) =>
   JSON.parse(readFileSync(new URL(`./fixtures/shopify/${name}.json`, import.meta.url), 'utf8'))
 
-export const shopifyDomain = 'nusrat-test.myshopify.com'
+export const shopifyDomain = 'test-shop.myshopify.com'
 
 // Answers Admin GraphQL from fixtures, keyed on the operation in the query text.
 export function fakeShopify(
@@ -68,7 +68,7 @@ export function fakeShopify(
 
     switch (op) {
       case 'shop {':
-        return ok({ shop: { name: "Nusrat's Closet", currencyCode: opts.currency ?? 'BDT' } })
+        return ok({ shop: { name: "SaudaAI Demo Shop", currencyCode: opts.currency ?? 'BDT' } })
       case 'products(first':
         return Response.json(fixture(variables.cursor ? 'products-2' : 'products-1'))
       case 'product(id': {

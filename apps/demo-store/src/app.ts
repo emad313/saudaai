@@ -187,7 +187,7 @@ export function createStoreApp(db: Db, cfg: StoreConfig) {
     await next()
   })
 
-  api.get('/info', (c) => c.json({ name: "Nusrat's Closet", currency: 'BDT' }))
+  api.get('/info', (c) => c.json({ name: "SaudaAI Demo Shop", currency: 'BDT' }))
 
   api.get('/products', async (c) => {
     const after = Number(c.req.query('cursor') ?? -1)
