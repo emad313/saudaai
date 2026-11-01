@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import type { AdFormat } from '../agent/deps.ts'
 import type { Db } from '../db/client.ts'
 import { loadMedia, saveMedia, type Media } from '../media/store.ts'
@@ -45,14 +46,21 @@ export async function renderDesign(
     refs.push(file.bytes)
   }
   const s = sizes[d.format]
-  const scene = await models.image(
-    `${d.prompt}. No text, no letters, no words, no logos, no watermark.`,
-    s.model,
-    refs,
-  )
-  const png = await screenshot(
-    overlay(shop, `data:image/webp;base64,${scene.toString('base64')}`, s, d),
-    { width: s.width, height: s.height },
-  )
+  const bg = await models
+    .image(`${d.prompt}. No text, no letters, no words, no logos, no watermark.`, s.model, refs)
+    .then((scene) => `data:image/webp;base64,${scene.toString('base64')}`)
+    .catch(async (err: unknown) => {
+      if (!(err instanceof Error) || !/content_policy/.test(err.message)) throw err
+      // Meta refuses some products (underwear, swimwear); the seller's own photo still makes a poster.
+      if (!refs[0]) {
+        throw new ToolError(
+          'image_refused',
+          'the image model refuses to draw this kind of product; send a photo of it and the poster is made from that photo',
+        )
+      }
+      const jpeg = await sharp(refs[0]).rotate().jpeg({ quality: 90 }).toBuffer()
+      return `data:image/jpeg;base64,${jpeg.toString('base64')}`
+    })
+  const png = await screenshot(overlay(shop, bg, s, d), { width: s.width, height: s.height })
   return saveMedia(db, png, 'image/png', { role: 'ad', derivedFrom: d.refs[0] })
 }

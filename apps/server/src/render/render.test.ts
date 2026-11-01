@@ -1,12 +1,14 @@
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { processProductPhoto } from '../catalog/photo.ts'
+import { saveMedia } from '../media/store.ts'
 import { createOrder } from '../tools/orders.ts'
 import { createProductDraft, findProducts, setProductStatus } from '../tools/products.ts'
 import { fakeDeps } from '../test/deps.ts'
 import { testShop } from '../test/shop.ts'
 import { headlineFor, offerPrice, renderAds } from './ad.ts'
 import { closeBrowser } from './browser.ts'
+import { renderDesign } from './design.ts'
 import { renderInvoice } from './invoice.ts'
 
 let t: Awaited<ReturnType<typeof testShop>>
@@ -75,5 +77,30 @@ describe('rendering', () => {
       [1080, 1080],
       [1080, 1920],
     ])
+  }, 60_000)
+})
+
+describe('design', () => {
+  it('makes the poster from the seller photo when the image model refuses', async () => {
+    const photo = await sharp({
+      create: { width: 600, height: 800, channels: 3, background: '#b91c1c' },
+    })
+      .jpeg()
+      .toBuffer()
+    const ref = await saveMedia(t.db, photo, 'image/jpeg')
+    const f = fakeDeps(t.db)
+    f.deps.models.image = async () => {
+      throw new Error('400 {"error":{"code":"content_policy_violation"}}')
+    }
+    const made = await renderDesign(t.db, f.deps.models, t.shop, {
+      prompt: 'lace set flat lay',
+      refs: [ref.id],
+      format: 'square',
+      headline: 'নতুন কালেকশন',
+    })
+    expect([made.width, made.height]).toEqual([1080, 1080])
+    await expect(
+      renderDesign(t.db, f.deps.models, t.shop, { prompt: 'lace set', refs: [], format: 'square' }),
+    ).rejects.toThrow('send a photo of it')
   }, 60_000)
 })
