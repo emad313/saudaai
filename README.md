@@ -247,15 +247,15 @@ Muse Spark Open has not been run (no Baseten key).
 
 ## Deploying
 
-SaudaAI is a long-running server (Telegram, webhooks, SQLite, Chromium for rendering), so it needs a container host with a disk, not a static or serverless host like Netlify or Vercel. Railway, Render (paid instance with a disk) and Fly.io all work from the Dockerfile.
+SaudaAI is a long-running server (Telegram, webhooks, Chromium for rendering), so it needs a container host, not a static or serverless host like Netlify or Vercel. It runs on Render, Railway or Fly.io from the Dockerfile.
 
-On Railway:
+On Render's free plan the disk is wiped whenever the service sleeps or redeploys, so keep the database on Turso (free libSQL); media is then copied into the database too:
 
-1. New project > Deploy from GitHub repo > this repository. Railway builds the Dockerfile.
-2. Add a volume mounted at `/data`.
-3. Variables: everything from your `.env`, with `PUBLIC_BASE_URL` set to the Railway domain (Settings > Networking > Generate domain) and `TELEGRAM_MODE=webhook`. Keep `STORE_SECRET_KEY` the same once stores are connected.
-4. After the first deploy run `pnpm webhooks:set` locally with that `PUBLIC_BASE_URL`, and enter the printed callback URL in the Meta app.
-5. For the demo store add a second service from the same repo with the start command `sh -c "cd /app/apps/demo-store && npx tsx src/index.ts"`, its own volume at `/data`, `DEMO_STORE_DATABASE_URL=file:/data/demo-store.db` and the `DEMO_STORE_*` variables (with `DEMO_STORE_SAUDAAI_URL` set to the SaudaAI domain). Leave `DEMO_STORE_PORT` unset there so it uses Railway's port.
+1. Turso: create a database, then copy its URL (`libsql://...`) and an auth token.
+2. Render: New > Web Service > this repository, runtime Docker, instance Free.
+3. Environment: "Add from .env" with your `.env`, then set `DATABASE_URL` and `DATABASE_AUTH_TOKEN` to Turso, `PUBLIC_BASE_URL` to the Render URL, `TELEGRAM_MODE=webhook`, and remove `PORT`, `MEDIA_DIR` and the `DEMO_STORE_*` lines.
+4. After the first deploy run `PUBLIC_BASE_URL=https://<your-app>.onrender.com pnpm webhooks:set` locally, and enter the printed callback URL in the Meta app.
+5. A free service sleeps after 15 minutes without traffic; a free uptime monitor calling `/api/health` every 10 minutes keeps it awake so scheduled jobs run.
 
 With Docker anywhere else:
 
