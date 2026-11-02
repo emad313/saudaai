@@ -16,8 +16,8 @@ Built with Meta's models for the Meta Global AI Developer Hackathon (Indie Devel
 
 ## Try it
 
-- Website chat: open the demo store (link on the dashboard login page) and use the chat bubble bottom right. Ask in Bangla, Banglish or English, send a voice note, place an order.
-- Dashboard: read-only demo at the live URL; the Docs page there explains setup.
+- Dashboard: open the live URL and press "Open the demo shop". You are the shop's owner: approve orders, give instructions by text, voice or photo in the box at the top, make ads. The Docs page explains everything.
+- Website chat: the login page links the shop's website (with its storefront password). Use the chat bubble bottom right as a customer: ask in Bangla, Banglish or English, send a voice note, place an order, then approve it in the dashboard.
 - Owner bot on Telegram: [@saudaai_demo_bot](https://t.me/saudaai_demo_bot), linked to the demo shop's owner (shown in the video).
 - Messenger, WhatsApp and Instagram run in Meta development mode, so only app testers can message the shop; the video shows Messenger on a real phone.
 
