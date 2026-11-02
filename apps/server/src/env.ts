@@ -20,6 +20,7 @@ const schema = z.object({
   DEMO_SITE_URL: optional,
   DEMO_SITE_PASSWORD: optional,
   DEMO_SHOP_SLUG: z.string().default('my-shop'),
+  SHOP_LINK_CODE: z.string().min(8).optional(),
   WEB_DIST: z.string().default('../web/dist'),
 
   AGENT_PROVIDER: z.enum(['meta', 'baseten']).default('meta'),
