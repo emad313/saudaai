@@ -87,7 +87,9 @@ function start(script: HTMLScriptElement) {
     sid = ''
   }
 
-  const host = el('div')
+  // Store themes hide empty divs (Shopify Dawn: div:empty); a custom tag with an inline !important stays.
+  const host = document.createElement('saudaai-chat')
+  host.style.setProperty('display', 'block', 'important')
   const root = host.attachShadow({ mode: 'open' })
   root.append(el('style', { textContent: css(color) }))
 
