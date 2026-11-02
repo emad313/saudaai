@@ -43,6 +43,13 @@
       "when": 1793632492301,
       "tag": "0005_media_blobs",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793638190347,
+      "tag": "0006_demo_sessions",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,7 @@ export type Me = {
   feedMuted: boolean
   telegramLinked: boolean
   linkCode: string | null
-  readonly: boolean
+  demo: boolean
   currency: string
   storeConnected: boolean
   ai: {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { send } from '../api.ts'
+import { api, send } from '../api.ts'
 import { useSession } from '../stores/session.ts'
 
 const code = ref('')
@@ -10,7 +10,25 @@ const busy = ref(false)
 const route = useRoute()
 const router = useRouter()
 const session = useSession()
-const demoSite = import.meta.env.VITE_DEMO_SITE_URL as string | undefined
+const demo = ref<{ available: boolean; siteUrl: string | null; sitePassword: string | null }>()
+
+onMounted(async () => {
+  demo.value = await api('/api/auth/demo')
+})
+
+async function tryDemo() {
+  busy.value = true
+  error.value = ''
+  try {
+    await send('/api/auth/demo', 'POST')
+    await session.load()
+    router.replace('/')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
 
 async function submit() {
   busy.value = true
@@ -64,13 +82,29 @@ async function submit() {
         >
           Log in
         </button>
-        <p v-if="demoSite" class="mt-10 text-sm text-muted">
-          Just looking?
-          <a :href="demoSite" class="font-medium text-ink hover:underline"
-            >Shop on the demo store</a
+        <div v-if="demo?.available" class="mt-10 border-t border-line pt-8">
+          <h2 class="font-semibold">Trying SaudaAI?</h2>
+          <p class="mt-2 text-sm leading-relaxed text-muted">
+            Open the demo shop as its owner, no code needed.
+          </p>
+          <button
+            type="button"
+            class="btn-quiet mt-4 min-h-12 w-full text-base"
+            :disabled="busy"
+            @click="tryDemo"
           >
-          and chat with it as a customer.
-        </p>
+            Open the demo shop
+          </button>
+          <p v-if="demo.siteUrl" class="mt-4 text-sm leading-relaxed text-muted">
+            Then chat as a customer on
+            <a :href="demo.siteUrl" target="_blank" rel="noopener" class="font-medium text-ink"
+              >the shop's website</a
+            ><template v-if="demo.sitePassword">
+              (store password <b class="font-semibold text-night">{{ demo.sitePassword }}</b
+              >)</template
+            >, using the chat bubble at the bottom right.
+          </p>
+        </div>
       </form>
     </section>
   </main>

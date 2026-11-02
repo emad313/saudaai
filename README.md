@@ -264,7 +264,7 @@ docker build -t saudaai .
 docker run -p 8787:8787 -v saudaai-data:/data --env-file .env saudaai
 ```
 
-The image includes Chromium for rendering and ffmpeg for audio, builds the dashboard and `/widget.js`, and creates the shop account on first start; connect the store from Settings. Set `DEMO_READONLY=1` to let anyone browse the demo dashboard without logging in. The demo store runs from the same image:
+The image includes Chromium for rendering and ffmpeg for audio, builds the dashboard and `/widget.js`, and creates the shop account on first start; connect the store from Settings. Set `DEMO_LOGIN=1` to put an "Open the demo shop" button on the login page: one click signs a visitor in as the owner of `DEMO_SHOP_SLUG`, with everything usable except the store connection and shop settings. The demo store runs from the same image:
 
 ```bash
 docker run -p 8790:8790 -v demo-store-data:/data --env-file .env \

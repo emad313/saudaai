@@ -52,7 +52,7 @@ import { listPosts } from '../tools/posts.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
 import { dhakaDayStart } from '../tools/text.ts'
 import { body } from './body.ts'
-import type { SellerEnv } from './session.ts'
+import { noDemo, type SellerEnv } from './session.ts'
 
 export function sellerRoutes(deps: Deps, inbox: Inbox) {
   const app = new Hono<SellerEnv>()
@@ -111,8 +111,8 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
       auto: shop.auto,
       feedMuted: shop.feedMuted,
       telegramLinked: Boolean(shop.telegramChatId),
-      linkCode: c.get('readonly') ? null : shop.linkCode,
-      readonly: c.get('readonly'),
+      linkCode: c.get('demo') ? null : shop.linkCode,
+      demo: c.get('demo'),
       widgetSnippet: `<script src="${env.PUBLIC_BASE_URL}/widget.js" data-shop="${shop.publicKey}" defer></script>`,
       // On Shopify product pages the widget also tells the assistant which product is open.
       widgetSnippetShopify:
@@ -245,6 +245,7 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
   app.get('/store', async (c) => c.json(await storeView(c.get('shop'))))
 
   app.put('/store', async (c) => {
+    noDemo(c)
     const shop = c.get('shop')
     const p = await body(c, storeConnect)
     const input: ConnectInput =
@@ -303,12 +304,14 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
   })
 
   app.delete('/store', async (c) => {
+    noDemo(c)
     const shop = c.get('shop')
     await connectStore(db, shop, { kind: 'builtin', credentials: {} }, deps.now())
     return c.json(await storeView(shop))
   })
 
   app.patch('/shop', async (c) => {
+    noDemo(c)
     const shop = c.get('shop')
     const p = await body(c, shopPatch)
     if (p.currency && p.currency !== shop.currency) {

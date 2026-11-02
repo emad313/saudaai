@@ -134,7 +134,7 @@ onMounted(load)
           </p>
           <p v-if="store.lastError" class="mt-1 text-sm text-bad">{{ store.lastError }}</p>
         </div>
-        <div v-if="connected && !session.me?.readonly" class="flex gap-2">
+        <div v-if="connected && !session.me?.demo" class="flex gap-2">
           <button
             class="btn-quiet"
             :disabled="!!busy"
@@ -201,7 +201,7 @@ onMounted(load)
         </template>
       </div>
 
-      <template v-if="!session.me?.readonly">
+      <template v-if="!session.me?.demo">
         <button v-if="!editing" class="btn-primary self-start" @click="editing = true">
           {{ connected ? 'Connect a different store' : 'Connect your store' }}
         </button>

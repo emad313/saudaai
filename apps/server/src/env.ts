@@ -13,10 +13,12 @@ const schema = z.object({
   DATABASE_URL: z.string().default('file:./data/saudaai.db'),
   DATABASE_AUTH_TOKEN: optional,
   MEDIA_DIR: z.string().default('./data/media'),
-  DEMO_READONLY: z
+  DEMO_LOGIN: z
     .enum(['0', '1'])
     .default('0')
     .transform((v) => v === '1'),
+  DEMO_SITE_URL: optional,
+  DEMO_SITE_PASSWORD: optional,
   DEMO_SHOP_SLUG: z.string().default('my-shop'),
   WEB_DIST: z.string().default('../web/dist'),
 

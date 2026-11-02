@@ -216,7 +216,6 @@ async function logout() {
                 ><AppIcon name="settings" />Settings</RouterLink
               >
               <button
-                v-if="!session.me?.readonly"
                 class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-sky hover:text-ink"
                 @click="logout"
               >
@@ -228,10 +227,12 @@ async function logout() {
       </header>
 
       <div
-        v-if="session.me?.readonly"
-        class="border-b border-ink/15 bg-sky px-4 py-2 text-ink md:px-6"
+        v-if="session.me?.demo"
+        class="border-b border-ink/15 bg-sky px-4 py-2 text-sm text-ink md:px-6"
       >
-        You are looking at the demo shop. Changes are switched off.
+        You are the owner of the demo shop. Chat as a customer on the shop's website, then approve
+        orders here and give the assistant instructions in the box at the top. The store connection
+        and shop settings stay as they are.
       </div>
       <main class="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
         <RouterView />

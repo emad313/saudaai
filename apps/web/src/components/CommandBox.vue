@@ -148,7 +148,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <template>
-  <template v-if="!session.me?.readonly">
+  <template v-if="session.me">
     <button
       v-if="!open"
       class="fixed right-5 bottom-5 z-30 flex items-center gap-2 rounded-full bg-ink py-3 pr-5 pl-4 font-medium text-white shadow-[0_8px_24px_rgb(26_140_240/0.35)] hover:bg-ink-dark"

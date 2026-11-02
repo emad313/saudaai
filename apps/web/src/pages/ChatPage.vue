@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import { api, send } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import { channelName, when } from '../format.ts'
-import { useSession } from '../stores/session.ts'
 import type { Message } from '../types.ts'
 
 type Conversation = {
@@ -16,7 +15,6 @@ type Conversation = {
 }
 
 const route = useRoute()
-const session = useSession()
 const conv = ref<Conversation | null>(null)
 const messages = ref<Message[]>([])
 const text = ref('')
@@ -92,11 +90,7 @@ onBeforeUnmount(() => clearInterval(timer))
         <RouterLink v-if="conv.customerId" :to="`/customers/${conv.customerId}`" class="btn-quiet"
           >Customer</RouterLink
         >
-        <button
-          v-if="!session.me?.readonly"
-          :class="paused ? 'btn-primary' : 'btn-quiet'"
-          @click="toggle"
-        >
+        <button :class="paused ? 'btn-primary' : 'btn-quiet'" @click="toggle">
           {{ paused ? 'Let the assistant answer' : 'I will answer' }}
         </button>
       </div>
@@ -134,7 +128,6 @@ onBeforeUnmount(() => clearInterval(timer))
     </ol>
 
     <form
-      v-if="!session.me?.readonly"
       class="sticky bottom-4 mt-6 flex gap-2 rounded-2xl border border-line bg-white p-2 shadow-lg shadow-night/5"
       @submit.prevent="reply"
     >

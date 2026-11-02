@@ -4,10 +4,8 @@ import { onMounted, ref } from 'vue'
 import { api, send } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
-import { useSession } from '../stores/session.ts'
 import type { ProductRow } from '../types.ts'
 
-const session = useSession()
 const products = ref<ProductRow[]>([])
 const error = ref('')
 
@@ -75,7 +73,6 @@ onMounted(load)
             <span>{{ label(v) }}</span>
             <span class="flex items-center gap-1">
               <button
-                v-if="!session.me?.readonly"
                 class="grid size-7 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"
                 :aria-label="`One less ${label(v)}`"
                 @click="stock(v.id, -1)"
@@ -91,7 +88,6 @@ onMounted(load)
                 ></span
               >
               <button
-                v-if="!session.me?.readonly"
                 class="grid size-7 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"
                 :aria-label="`One more ${label(v)}`"
                 @click="stock(v.id, 1)"
@@ -101,7 +97,7 @@ onMounted(load)
             </span>
           </li>
         </ul>
-        <div v-if="!session.me?.readonly" class="mt-auto flex gap-2 pt-4">
+        <div class="mt-auto flex gap-2 pt-4">
           <button
             v-if="p.status === 'draft'"
             class="btn-primary w-full"

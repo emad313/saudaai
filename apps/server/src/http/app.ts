@@ -11,7 +11,7 @@ import type { Services } from '../services.ts'
 import { ToolError } from '../tools/ctx.ts'
 import { body } from './body.ts'
 import { sellerRoutes } from './seller.ts'
-import { login, logout, requireShop, type SellerEnv } from './session.ts'
+import { demoLogin, demoShop, login, logout, requireShop, type SellerEnv } from './session.ts'
 import { widgetRoutes } from './widget.ts'
 import { webhookRoutes } from './webhooks.ts'
 
@@ -27,6 +27,17 @@ export function createApp(services?: Services) {
     app.post('/api/auth/code', async (c) => {
       const { code } = await body(c, authCode)
       await login(c, db, code)
+      return c.json({ ok: true })
+    })
+    app.get('/api/auth/demo', async (c) =>
+      c.json({
+        available: Boolean(await demoShop(db)),
+        siteUrl: env.DEMO_SITE_URL ?? null,
+        sitePassword: env.DEMO_SITE_PASSWORD ?? null,
+      }),
+    )
+    app.post('/api/auth/demo', async (c) => {
+      await demoLogin(c, db)
       return c.json({ ok: true })
     })
     app.post('/api/auth/logout', async (c) => {

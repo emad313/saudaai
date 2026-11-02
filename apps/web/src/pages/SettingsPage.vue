@@ -197,11 +197,14 @@ const switches = [
         </section>
 
         <div class="flex items-center gap-3">
-          <button class="btn-primary min-h-11 px-6" :disabled="session.me?.readonly">
+          <button class="btn-primary min-h-11 px-6" :disabled="session.me?.demo">
             Save settings
           </button>
           <span v-if="saved" class="text-sm font-medium text-good">Settings saved</span>
           <span v-if="error" class="text-sm text-bad">{{ error }}</span>
+          <span v-if="session.me?.demo" class="text-sm text-muted"
+            >Settings are fixed in the demo.</span
+          >
         </div>
       </form>
     </div>

@@ -378,6 +378,7 @@ export const sessions = sqliteTable('sessions', {
     .notNull()
     .references(() => shops.id),
   expiresAt: integer('expires_at').notNull(),
+  demo: integer('demo', { mode: 'boolean' }).notNull().default(false),
   createdAt: createdAt(),
 })
 

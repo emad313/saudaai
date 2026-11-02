@@ -65,10 +65,7 @@ async function decide(action: 'approve' | 'cancel') {
       aria-label="Reply text"
     ></textarea>
     <p v-if="error" class="mt-2 text-sm text-bad">{{ error }}</p>
-    <div
-      v-if="item.status === 'pending' && !session.me?.readonly"
-      class="mt-4 flex flex-wrap gap-2"
-    >
+    <div v-if="item.status === 'pending'" class="mt-4 flex flex-wrap gap-2">
       <button class="btn-primary" :disabled="busy" @click="decide('approve')">
         {{ editing ? 'Send edited reply' : 'Approve' }}
       </button>

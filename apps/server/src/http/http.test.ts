@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegram } from '../channels/telegram.ts'
+import { env } from '../env.ts'
 import { loginCodes } from '../db/schema.ts'
 import { createInbox } from '../inbox.ts'
 import { call, calls, fakeDeps, say } from '../test/deps.ts'
@@ -39,6 +40,35 @@ async function signIn() {
 describe('seller api', () => {
   it('needs a session', async () => {
     expect((await app.request('/api/dashboard')).status).toBe(401)
+  })
+
+  it('lets judges in with one click but keeps the store and settings', async () => {
+    expect(await (await app.request('/api/auth/demo')).json()).toMatchObject({ available: false })
+    expect((await app.request('/api/auth/demo', { method: 'POST' })).status).toBe(404)
+
+    env.DEMO_LOGIN = true
+    const slug = env.DEMO_SHOP_SLUG
+    env.DEMO_SHOP_SLUG = t.shop.slug
+    try {
+      const res = await app.request('/api/auth/demo', { method: 'POST' })
+      const cookie = res.headers.get('set-cookie')!.split(';')[0]!
+      const me = await (await app.request('/api/me', { headers: { cookie } })).json()
+      expect(me).toMatchObject({ demo: true, linkCode: null })
+      const json = { cookie, 'content-type': 'application/json' }
+      expect(
+        (await app.request('/api/store', { method: 'DELETE', headers: { cookie } })).status,
+      ).toBe(403)
+      const patch = await app.request('/api/shop', {
+        method: 'PATCH',
+        headers: json,
+        body: JSON.stringify({ name: 'Taken over' }),
+      })
+      expect(patch.status).toBe(403)
+      expect((await app.request('/api/orders', { headers: { cookie } })).status).toBe(200)
+    } finally {
+      env.DEMO_LOGIN = false
+      env.DEMO_SHOP_SLUG = slug
+    }
   })
 
   it('lists what was posted, newest first', async () => {

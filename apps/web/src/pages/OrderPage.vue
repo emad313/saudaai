@@ -5,11 +5,9 @@ import { api, send } from '../api.ts'
 import AppIcon from '../components/AppIcon.vue'
 import StatusText from '../components/StatusText.vue'
 import { methodName, money, when } from '../format.ts'
-import { useSession } from '../stores/session.ts'
 import type { OrderDetail } from '../types.ts'
 
 const route = useRoute()
-const session = useSession()
 const order = ref<OrderDetail | null>(null)
 const payments = ref<{ id: string; amountPoisha: number; method: string; createdAt: number }[]>([])
 const amount = ref<number | null>(null)
@@ -148,9 +146,7 @@ onMounted(load)
         </section>
 
         <section
-          v-if="
-            !session.me?.readonly && order.status !== 'delivered' && order.status !== 'cancelled'
-          "
+          v-if="order.status !== 'delivered' && order.status !== 'cancelled'"
           class="panel flex flex-col gap-2 p-5"
         >
           <button
@@ -172,7 +168,7 @@ onMounted(load)
         </section>
 
         <form
-          v-if="!session.me?.readonly && order.duePoisha > 0 && order.status !== 'cancelled'"
+          v-if="order.duePoisha > 0 && order.status !== 'cancelled'"
           class="panel flex flex-col gap-3 p-5"
           @submit.prevent="pay"
         >
