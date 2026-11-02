@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, send } from '../api.ts'
 import { when } from '../format.ts'
 import { useSession } from '../stores/session.ts'
@@ -17,7 +17,6 @@ type StoreView = {
   webhookUrl?: string
   webhookSecret?: string | null
   webhooksAutomatic?: boolean
-  webhooksRefused?: { topic: string; reason: string }[]
 }
 
 const session = useSession()
@@ -54,17 +53,27 @@ const names: Record<Kind, string> = {
 
 const connected = computed(() => store.value && store.value.kind !== 'builtin')
 
+let poll: ReturnType<typeof setTimeout> | undefined
+
+// The first sync runs on the server after connecting; check back until it finishes.
 async function load() {
   store.value = await api<StoreView>('/api/store')
+  clearTimeout(poll)
+  if (store.value.status === 'syncing') poll = setTimeout(watchSync, 3000)
 }
+
+async function watchSync() {
+  await load()
+  if (store.value?.status !== 'syncing') await session.load()
+}
+onUnmounted(() => clearTimeout(poll))
 
 async function run(label: string, fn: () => Promise<StoreView | unknown>) {
   busy.value = label
   error.value = ''
   try {
-    const res = await fn()
-    if (res && typeof res === 'object' && 'kind' in res) store.value = res as StoreView
-    else await load()
+    await fn()
+    await load()
     // the store sets the shop's name and currency
     await session.load()
     editing.value = false
@@ -137,10 +146,10 @@ onMounted(load)
         <div v-if="connected && !session.me?.demo" class="flex gap-2">
           <button
             class="btn-quiet"
-            :disabled="!!busy"
+            :disabled="!!busy || store.status === 'syncing'"
             @click="run('sync', () => send('/api/store/sync', 'POST'))"
           >
-            {{ busy === 'sync' ? 'Syncing…' : 'Sync now' }}
+            {{ store.status === 'syncing' ? 'Syncing…' : 'Sync now' }}
           </button>
           <button
             class="btn-ghost"
@@ -153,18 +162,6 @@ onMounted(load)
       </div>
 
       <div v-if="connected" class="rounded-lg bg-cloud p-4 text-sm">
-        <div v-if="store.webhooksRefused?.length" class="mb-3 rounded-lg bg-warn/10 p-3 text-warn">
-          <p class="font-medium">
-            The store refused live updates for:
-            {{ store.webhooksRefused.map((w) => w.topic).join(', ') }}
-          </p>
-          <p class="mt-1">{{ store.webhooksRefused[0]!.reason }}</p>
-          <p v-if="store.kind === 'shopify'" class="mt-1">
-            Order topics need protected customer data access (Shopify admin, Apps, Develop apps,
-            your app, Configuration, Protected customer data access); inventory needs the
-            read_inventory scope. Then connect again. Until then a full sync runs every 30 minutes.
-          </p>
-        </div>
         <p v-if="store.webhooksAutomatic" class="text-good">
           Store updates are sent here automatically. A full sync also runs every 30 minutes.
         </p>
@@ -337,7 +334,7 @@ onMounted(load)
 
           <div class="flex flex-wrap items-center gap-2">
             <button class="btn-primary" :disabled="!!busy">
-              {{ busy === 'connect' ? 'Testing and syncing…' : 'Test and connect' }}
+              {{ busy === 'connect' ? 'Testing…' : 'Test and connect' }}
             </button>
             <button type="button" class="btn-ghost" @click="editing = false">Cancel</button>
           </div>

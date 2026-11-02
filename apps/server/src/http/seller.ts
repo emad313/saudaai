@@ -28,6 +28,7 @@ import {
   pendingActions,
   products,
   shops,
+  stores,
 } from '../db/schema.ts'
 import type { Inbox } from '../inbox.ts'
 import { log } from '../log.ts'
@@ -44,9 +45,10 @@ import {
   storeFor,
   webhookSecretOf,
   type ConnectInput,
+  type StoreRow,
 } from '../stores/index.ts'
 import { pullStore } from '../stores/sync.ts'
-import { StoreError } from '../stores/types.ts'
+import { StoreError, type StoreConnector } from '../stores/types.ts'
 import { analytics } from '../tools/analytics.ts'
 import { listPosts } from '../tools/posts.ts'
 import { dailySales, dailySummary, salesReport } from '../tools/reports.ts'
@@ -244,6 +246,37 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
 
   app.get('/store', async (c) => c.json(await storeView(c.get('shop'))))
 
+  // A first sync over a remote database outlives the proxy's request timeout, so it runs after the answer.
+  const syncing = new Set<string>()
+  async function syncLater(shop: Shop, row: StoreRow, connector: StoreConnector, hooks: boolean) {
+    if (syncing.has(row.id)) return
+    syncing.add(row.id)
+    await db.update(stores).set({ status: 'syncing' }).where(eq(stores.id, row.id))
+    void (async () => {
+      await pullStore(db, row, connector, deps.now())
+      // Stores cannot call a laptop on http://localhost; locally the 30 minute pull covers it.
+      if (!hooks || !connector.registerWebhooks || !env.PUBLIC_BASE_URL.startsWith('https://'))
+        return
+      const refused = await connector.registerWebhooks(
+        `${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`,
+      )
+      if (!refused.length) return
+      log.warn({ shopId: shop.id, refused }, 'store refused some webhooks')
+      const hint =
+        row.kind === 'shopify'
+          ? ' Order updates need protected customer data access on the Shopify app; stock updates need read_inventory. A full sync still runs every 30 minutes.'
+          : ' A full sync still runs every 30 minutes.'
+      const [now] = await db.select().from(stores).where(eq(stores.id, row.id))
+      const message = `The store refused live updates for ${refused.map((r) => r.topic).join(', ')}: ${refused[0]!.reason}.${hint}`
+      await db
+        .update(stores)
+        .set({ lastError: [now?.lastError, message].filter(Boolean).join(' ').slice(0, 1000) })
+        .where(eq(stores.id, row.id))
+    })()
+      .catch((err) => log.warn({ shopId: shop.id, err: String(err) }, 'store sync failed'))
+      .finally(() => syncing.delete(row.id))
+  }
+
   app.put('/store', async (c) => {
     noDemo(c)
     const shop = c.get('shop')
@@ -271,36 +304,22 @@ export function sellerRoutes(deps: Deps, inbox: Inbox) {
                     : {}),
                 },
               }
-    let refused: { topic: string; reason: string }[] = []
     try {
       const { row, connector } = await connectStore(db, shop, input, deps.now())
-      if (connector) {
-        await pullStore(db, row, connector, deps.now())
-        // Stores cannot call a laptop on http://localhost; locally the 30 minute pull covers it.
-        if (connector.registerWebhooks && env.PUBLIC_BASE_URL.startsWith('https://')) {
-          refused = await connector.registerWebhooks(
-            `${env.PUBLIC_BASE_URL}/webhooks/store/${shop.id}`,
-          )
-          if (refused.length) log.warn({ shopId: shop.id, refused }, 'store refused some webhooks')
-        }
-      }
+      if (connector) await syncLater(shop, row, connector, true)
     } catch (err) {
       if (err instanceof StoreError) throw new HTTPException(400, { message: err.message })
       throw err
     }
-    return c.json({ ...(await storeView(shop)), webhooksRefused: refused })
+    return c.json(await storeView(shop))
   })
 
   app.post('/store/sync', async (c) => {
     const shop = c.get('shop')
     const { row, connector } = await storeFor(db, shop.id)
     if (!row || !connector) throw new HTTPException(400, { message: 'no store connected' })
-    try {
-      return c.json(await pullStore(db, row, connector, deps.now()))
-    } catch (err) {
-      if (err instanceof StoreError) throw new HTTPException(502, { message: err.message })
-      throw err
-    }
+    await syncLater(shop, row, connector, false)
+    return c.json(await storeView(shop))
   })
 
   app.delete('/store', async (c) => {

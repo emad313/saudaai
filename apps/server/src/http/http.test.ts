@@ -308,7 +308,17 @@ describe('store api', () => {
       body: JSON.stringify({ kind: 'custom', baseUrl: storeUrl, token: 'tok-12345678' }),
     })
     expect(ok.status).toBe(200)
-    const view = (await ok.json()) as { webhookSecret: string; webhookUrl: string }
+    expect(await ok.json()).toMatchObject({ kind: 'custom', status: 'syncing' })
+    // the first sync runs after the answer
+    let view = { status: 'syncing' } as {
+      status: string
+      webhookSecret: string
+      webhookUrl: string
+    }
+    for (let i = 0; i < 50 && view.status === 'syncing'; i++) {
+      await new Promise((r) => setTimeout(r, 20))
+      view = await (await app.request('/api/store', { headers: { cookie } })).json()
+    }
     expect(JSON.stringify(view)).not.toContain('tok-12345678')
     expect(view).toMatchObject({ kind: 'custom', name: 'Demo Site', status: 'connected' })
     expect(view.webhookUrl).toContain(`/webhooks/store/${t.shop.id}`)

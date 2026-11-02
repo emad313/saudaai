@@ -17,6 +17,9 @@ const tone: Record<string, string> = {
   failed: 'bg-bad/10 text-bad',
   active: 'bg-good/10 text-good',
   archived: 'bg-cloud text-muted',
+  connected: 'bg-good/10 text-good',
+  syncing: 'bg-sky text-ink',
+  error: 'bg-bad/10 text-bad',
 }
 </script>
 
