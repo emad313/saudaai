@@ -10,7 +10,7 @@ const url = process.env.DEMO_STORE_URL ?? 'http://localhost:8790'
 const token = process.env.DEMO_STORE_TOKEN
 if (!token) throw new Error('set DEMO_STORE_TOKEN in .env (the same value the demo store uses)')
 
-const db = openDb(env.DATABASE_URL)
+const db = openDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN)
 const [shop] = await db.select().from(shops).where(eq(shops.slug, env.DEMO_SHOP_SLUG))
 if (!shop) throw new Error(`no shop ${env.DEMO_SHOP_SLUG}, run pnpm db:seed first`)
 

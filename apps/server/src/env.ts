@@ -11,6 +11,7 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   PUBLIC_BASE_URL: z.string().default('http://localhost:8787'),
   DATABASE_URL: z.string().default('file:./data/saudaai.db'),
+  DATABASE_AUTH_TOKEN: optional,
   MEDIA_DIR: z.string().default('./data/media'),
   DEMO_READONLY: z
     .enum(['0', '1'])

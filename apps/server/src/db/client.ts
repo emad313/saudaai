@@ -12,9 +12,9 @@ export type Conn = Db | Tx
 
 const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), 'migrations')
 
-export function openDb(url: string) {
+export function openDb(url: string, authToken?: string) {
   if (url.startsWith('file:')) mkdirSync(dirname(url.slice('file:'.length)), { recursive: true })
-  const client = createClient({ url })
+  const client = createClient({ url, authToken })
   return drizzle(client, { schema })
 }
 

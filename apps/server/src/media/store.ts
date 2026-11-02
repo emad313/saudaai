@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { and, eq } from 'drizzle-orm'
 import sharp from 'sharp'
 import type { Db } from '../db/client.ts'
 import { newId } from '../db/ids.ts'
-import { media } from '../db/schema.ts'
+import { media, mediaBlobs } from '../db/schema.ts'
 import { env } from '../env.ts'
 
 export type Media = typeof media.$inferSelect
+
+// With the database off the machine (Turso), the local disk is only a cache: free hosts wipe it.
+const diskIsCache = () => !env.DATABASE_URL.startsWith('file:')
 
 const extensions: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -36,6 +39,7 @@ export async function saveMedia(
   await mkdir(dir, { recursive: true })
   const path = join(dir, `${sha256}.${extensions[type] ?? 'bin'}`)
   await writeFile(path, bytes)
+  if (diskIsCache()) await db.insert(mediaBlobs).values({ sha256, bytes }).onConflictDoNothing()
   const size = type.startsWith('image/') ? await sharp(bytes).metadata() : undefined
   const row: Media = {
     id: newId(),
@@ -57,7 +61,14 @@ export async function saveMedia(
 export async function loadMedia(db: Db, id: string) {
   const [row] = await db.select().from(media).where(eq(media.id, id))
   if (!row) return null
-  return { row, bytes: await readFile(row.path) }
+  const bytes = await readFile(row.path).catch(async () => {
+    const [copy] = await db.select().from(mediaBlobs).where(eq(mediaBlobs.sha256, row.sha256))
+    if (!copy) return null
+    await mkdir(dirname(row.path), { recursive: true })
+    await writeFile(row.path, copy.bytes)
+    return copy.bytes
+  })
+  return bytes ? { row, bytes } : null
 }
 
 export async function derived(db: Db, id: string, role: Media['role']) {

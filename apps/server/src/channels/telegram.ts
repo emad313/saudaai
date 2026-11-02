@@ -10,7 +10,7 @@ import { conversations, loginCodes, pendingActions, products, shops } from '../d
 import { env } from '../env.ts'
 import type { Inbox } from '../inbox.ts'
 import { log } from '../log.ts'
-import { loadMedia } from '../media/store.ts'
+import { fileName, loadMedia } from '../media/store.ts'
 import { download } from './meta.ts'
 import { ToolError, type Shop } from '../tools/ctx.ts'
 import { dailySummary } from '../tools/reports.ts'
@@ -74,10 +74,14 @@ export function createTelegram(db: Db) {
       if (pending.tool === 'post_to_website') image = String(pending.args.mediaId ?? '') || null
       const file = image ? await loadMedia(db, image) : null
       const sent = file
-        ? await bot.api.sendPhoto(chat, new InputFile(file.row.path), {
-            caption: pending.preview,
-            reply_markup: keys,
-          })
+        ? await bot.api.sendPhoto(
+            chat,
+            new InputFile(file.bytes, fileName(file.row.id, file.row.mime)),
+            {
+              caption: pending.preview,
+              reply_markup: keys,
+            },
+          )
         : await bot.api.sendMessage(chat, pending.preview, { reply_markup: keys })
       await db
         .update(pendingActions)
@@ -106,13 +110,20 @@ export function createTelegram(db: Db) {
         (f) => f !== null,
       )
       if (files.length === 1) {
-        await bot.api.sendPhoto(chat, new InputFile(files[0]!.row.path), caption ? { caption } : {})
+        await bot.api.sendPhoto(
+          chat,
+          new InputFile(files[0]!.bytes, fileName(files[0]!.row.id, files[0]!.row.mime)),
+          caption ? { caption } : {},
+        )
         return
       }
       await bot.api.sendMediaGroup(
         chat,
         files.map((f, i) =>
-          InputMediaBuilder.photo(new InputFile(f.row.path), i === 0 && caption ? { caption } : {}),
+          InputMediaBuilder.photo(
+            new InputFile(f.bytes, fileName(f.row.id, f.row.mime)),
+            i === 0 && caption ? { caption } : {},
+          ),
         ),
       )
     },

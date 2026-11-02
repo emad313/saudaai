@@ -8,7 +8,7 @@ import { createModels } from './models/index.ts'
 import { createRenderer } from './render/index.ts'
 
 export async function createServices() {
-  const db = openDb(env.DATABASE_URL)
+  const db = openDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN)
   await migrateDb(db)
   const models = createModels(db, env)
   const telegram = createTelegram(db)

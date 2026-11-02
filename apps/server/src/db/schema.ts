@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm'
-import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+  blob,
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 const id = () => text('id').primaryKey()
 const createdAt = () => integer('created_at').notNull()
@@ -394,3 +402,9 @@ export const posts = sqliteTable(
   },
   (t) => [index('posts_shop_idx').on(t.shopId, t.createdAt)],
 )
+
+// Copies of media for hosts whose disk is wiped on restart (database not on local disk).
+export const mediaBlobs = sqliteTable('media_blobs', {
+  sha256: text('sha256').primaryKey(),
+  bytes: blob('bytes', { mode: 'buffer' }).notNull(),
+})
