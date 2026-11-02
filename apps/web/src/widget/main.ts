@@ -120,7 +120,8 @@ function start(script: HTMLScriptElement) {
   )
   const bubble = el('button', { type: 'button', class: 'bubble', ariaLabel: t.open }, icon('chat'))
   root.append(panel, bubble)
-  document.body.append(host)
+  // Outside <body>: themes that transform the body would pin the fixed bubble to the page bottom.
+  document.documentElement.append(host)
 
   const scroll = () => (log.scrollTop = log.scrollHeight)
 
