@@ -16,10 +16,23 @@ Built with Meta's models for the Meta Global AI Developer Hackathon (Indie Devel
 
 ## Try it
 
-- Dashboard: open the live URL and press "Open the demo shop". You are the shop's owner: approve orders, give instructions by text, voice or photo in the box at the top, make ads. The Docs page explains everything.
-- Website chat: the login page links the shop's website (with its storefront password). Use the chat bubble bottom right as a customer: ask in Bangla, Banglish or English, send a voice note, place an order, then approve it in the dashboard.
-- Owner bot on Telegram: [@saudaai_demo_bot](https://t.me/saudaai_demo_bot), linked to the demo shop's owner (shown in the video).
-- Messenger, WhatsApp and Instagram run in Meta development mode, so only app testers can message the shop; the video shows Messenger on a real phone.
+Live: **https://saudaai.hostless.app**
+
+1. Open the live URL and press **Open the demo shop**. You are the owner of Talan Clothing, a Shopify development store connected to SaudaAI. No code or Telegram needed.
+2. Open the shop's website, **https://talan-clothing.myshopify.com** (storefront password `gewsug`), go to any product and use the chat bubble bottom right as a customer: ask in Bangla, Banglish or English ("eta M size e ache? dam koto?"), send a voice note, and place an order with a name, a Bangladeshi mobile number and an address.
+3. Back in the dashboard, approve the order under Approvals. It is created in the Shopify store and the customer gets the confirmation and invoice in the chat.
+4. Give the assistant instructions in the box at the top of the dashboard, by text, voice or photo: "aj koto sell holo?", "Zip-Up Hoodie er winter ad banao", a product photo with "notun kurti 1350 taka, M L 5 ta kore".
+5. See every step it took in Agent log, and the numbers in Analytics. The Docs page explains the rest.
+
+The owner side also runs on Telegram ([@saudaai_demo_bot](https://t.me/saudaai_demo_bot), linked to the shop's owner). Messenger, WhatsApp and Instagram run in Meta development mode, so only app testers can message the shop there; the video shows Messenger on a real phone.
+
+| Customer chat on the store's own website | The owner's day |
+|---|---|
+| ![Website chat on a Shopify product page](assets/screenshots/website-chat.webp) | ![Today](assets/screenshots/today.webp) |
+| **Analytics**: channels, AI share, what customers wanted | **Agent log**: every tool call and what the code decided |
+| ![Analytics](assets/screenshots/analytics.webp) | ![Agent log](assets/screenshots/agent-log.webp) |
+| **Catalog** synced from Shopify, with photos and stock | **One-click demo login** for judges |
+| ![Catalog](assets/screenshots/catalog.webp) | ![Login](assets/screenshots/login.webp) |
 
 ## What it does
 
